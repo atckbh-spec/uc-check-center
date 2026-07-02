@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+dist/
+
+# Local environment files
+.env.local
+.env*.local
+.env.production.local
+
+# Logs and local caches
+*.log
+tsconfig.tsbuildinfo
+.DS_Store
+
+# Local tooling
+.vercel/
+.turbo/
