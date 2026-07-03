@@ -1,0 +1,3 @@
+-- DEPRECATED COMPATIBILITY FILE
+-- Do not run this file in new or existing environments.
+-- Use supabase/003_member_registration_fields.sql instead.

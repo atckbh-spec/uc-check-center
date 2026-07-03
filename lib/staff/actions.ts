@@ -143,7 +143,7 @@ export async function updateStaffUser(formData: FormData) {
 }
 
 export async function assignMemberCoach(memberId: string, formData: FormData) {
-  const actor = await requireRole(["owner", "admin"]);
+  const actor = await requireRole(["owner", "admin", "coach", "front_desk"]);
   const assignedCoachId = String(formData.get("assigned_coach_id") || "") || null;
 
   if (isDemoMode()) {

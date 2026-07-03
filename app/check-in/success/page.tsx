@@ -4,8 +4,6 @@ import { StaffOnlyLayout } from "@/components/layout/StaffOnlyLayout";
 import { Card } from "@/components/ui/card";
 import { todayInKorea } from "@/lib/utils/format-date";
 
-export const dynamic = "force-dynamic";
-
 type Props = {
   searchParams: {
     ok?: string;
@@ -17,6 +15,8 @@ type Props = {
     message?: string;
   };
 };
+
+export const dynamic = "force-dynamic";
 
 export default function StaffCheckInSuccessPage({ searchParams }: Props) {
   const ok = searchParams.ok === "true";

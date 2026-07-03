@@ -1,6 +1,6 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function createAuditLog(input: {
   organizationId: string;
@@ -11,7 +11,7 @@ export async function createAuditLog(input: {
   beforeData?: unknown;
   afterData?: unknown;
 }) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const { error } = await supabase.from("audit_logs").insert({
     organization_id: input.organizationId,
     actor_id: input.actorId ?? null,
@@ -23,6 +23,12 @@ export async function createAuditLog(input: {
   });
 
   if (error) {
-    throw new Error(`감사 로그 저장 실패: ${error.message}`);
+    console.error("Failed to create audit log", {
+      action: input.action,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      error
+    });
+    throw new Error("감사 로그를 저장하지 못했습니다.");
   }
 }

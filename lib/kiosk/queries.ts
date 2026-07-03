@@ -1,5 +1,4 @@
 import { isDemoMode } from "@/lib/config/env";
-import { logKioskAttempt } from "@/lib/kiosk/attempt-log";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { todayInKorea } from "@/lib/utils/format-date";
 import { maskKoreanName, maskPhone } from "@/lib/utils/mask-phone";
@@ -70,7 +69,6 @@ export async function getKioskSearchResultByLast4(phoneLast4: string): Promise<K
   const last4 = normalizeLast4(phoneLast4);
 
   if (!/^\d{4}$/.test(last4)) {
-    await logKioskAttempt({ phoneLast4: last4 || null, result: "blocked" });
     return {
       last4,
       isValid: false,
@@ -99,24 +97,16 @@ export async function getKioskSearchResultByLast4(phoneLast4: string): Promise<K
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("members")
-    .select("id, organization_id, name, phone, member_passes(id, pass_name, remaining_sessions, status, end_date)")
+    .select("id, name, phone, member_passes(id, pass_name, remaining_sessions, status, end_date)")
     .eq("phone_last4", last4)
     .eq("status", "active")
     .order("updated_at", { ascending: false })
     .limit(6);
 
-  if (error) {
-    await logKioskAttempt({ phoneLast4: last4, result: "error" });
-    throw new Error(error.message);
-  }
+  if (error) throw new Error(error.message);
 
   const rows = data ?? [];
   const tooMany = rows.length > 5;
-  await logKioskAttempt({
-    organizationId: rows[0]?.organization_id ?? null,
-    phoneLast4: last4,
-    result: tooMany ? "too_many" : rows.length > 0 ? "found" : "not_found"
-  });
   const candidates = rows.slice(0, 5).map((member) => ({
     id: member.id,
     maskedName: maskKoreanName(member.name),
@@ -164,7 +154,7 @@ export async function getKioskMemberPreview(memberId: string, memberPassId: stri
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("members")
-    .select("id, organization_id, name, phone, member_passes(id, pass_name, remaining_sessions, status, end_date)")
+    .select("id, name, phone, member_passes(id, pass_name, remaining_sessions, status, end_date)")
     .eq("id", memberId)
     .eq("status", "active")
     .single();

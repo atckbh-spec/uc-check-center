@@ -113,54 +113,62 @@ create table if not exists audit_logs (
   created_at timestamptz not null default now()
 );
 
-create or replace function public.current_staff_organization_id()
+create or replace function current_staff_organization_id()
 returns uuid
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select organization_id
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
+  select organization_id from staff_users
+  where auth_user_id = auth.uid() and is_active = true
   limit 1
 $$;
 
-create or replace function public.current_staff_role()
+create or replace function current_staff_role()
 returns text
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select role
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
+  select role from staff_users
+  where auth_user_id = auth.uid() and is_active = true
   limit 1
 $$;
 
-create or replace function public.current_staff_id()
+create or replace function current_staff_id()
 returns uuid
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select id
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
+  select id from staff_users
+  where auth_user_id = auth.uid() and is_active = true
   limit 1
 $$;
 
-revoke execute on function public.current_staff_organization_id() from public, anon;
-revoke execute on function public.current_staff_role() from public, anon;
-revoke execute on function public.current_staff_id() from public, anon;
-grant execute on function public.current_staff_organization_id() to authenticated, service_role;
-grant execute on function public.current_staff_role() to authenticated, service_role;
-grant execute on function public.current_staff_id() to authenticated, service_role;
+create or replace function prevent_direct_member_pass_session_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (
+    new.used_sessions is distinct from old.used_sessions
+    or new.remaining_sessions is distinct from old.remaining_sessions
+  ) and coalesce(current_setting('app.allow_session_adjustment', true), '') <> 'true' then
+    raise exception '잔여횟수는 승인된 RPC를 통해서만 수정할 수 있습니다.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_member_pass_session_counts on member_passes;
+create trigger protect_member_pass_session_counts
+before update on member_passes
+for each row execute function prevent_direct_member_pass_session_update();
 
 alter table organizations enable row level security;
 alter table staff_users enable row level security;
@@ -171,108 +179,25 @@ alter table attendance_logs enable row level security;
 alter table member_notes enable row level security;
 alter table audit_logs enable row level security;
 
-create policy "staff can read own organization" on organizations
-for select
-using (id = public.current_staff_organization_id());
-
-create policy "staff can read staff in organization" on staff_users
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "owners can manage staff in organization" on staff_users
-for update
-using (organization_id = public.current_staff_organization_id() and public.current_staff_role() = 'owner')
-with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() = 'owner');
-
-create policy "staff can read members" on members
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "ops staff can create members" on members
-for insert
-with check (
-  organization_id = public.current_staff_organization_id()
-  and public.current_staff_role() in ('owner','admin','front_desk')
-);
-
-create policy "ops staff can update members" on members
-for update
-using (
-  organization_id = public.current_staff_organization_id()
-  and public.current_staff_role() in ('owner','admin','front_desk')
-)
-with check (
-  organization_id = public.current_staff_organization_id()
-  and public.current_staff_role() in ('owner','admin','front_desk')
-);
-
-create policy "staff can read pass templates" on pass_templates
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "admins can manage pass templates" on pass_templates
-for all
-using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'))
-with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
-
-create policy "staff can read member passes" on member_passes
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "ops staff can create member passes" on member_passes
-for insert
-with check (
-  organization_id = public.current_staff_organization_id()
-  and public.current_staff_role() in ('owner','admin','front_desk')
-);
-
-create policy "admins can update member passes" on member_passes
-for update
-using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'))
-with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
-
-create policy "staff can read attendance" on attendance_logs
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "staff can insert no show attendance" on attendance_logs
-for insert
-with check (
-  organization_id = public.current_staff_organization_id()
-  and source = 'staff'
-  and status = 'no_show'
-  and checked_by = public.current_staff_id()
-);
-
-create policy "staff can read notes" on member_notes
-for select
-using (organization_id = public.current_staff_organization_id());
-
-create policy "staff can create notes" on member_notes
-for insert
-with check (
-  organization_id = public.current_staff_organization_id()
-  and created_by = public.current_staff_id()
-);
-
-create policy "note authors and admins can update notes" on member_notes
-for update
-using (
-  organization_id = public.current_staff_organization_id()
-  and (created_by = public.current_staff_id() or public.current_staff_role() in ('owner','admin'))
-)
-with check (
-  organization_id = public.current_staff_organization_id()
-  and (created_by = public.current_staff_id() or public.current_staff_role() in ('owner','admin'))
-);
-
-create policy "admins can read audit" on audit_logs
-for select
-using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
-
-create policy "staff can insert audit" on audit_logs
-for insert
-with check (organization_id = public.current_staff_organization_id() and actor_id = public.current_staff_id());
+create policy "staff can read own organization" on organizations for select using (id = current_staff_organization_id());
+create policy "staff can read staff" on staff_users for select using (organization_id = current_staff_organization_id());
+create policy "staff can read members" on members for select using (organization_id = current_staff_organization_id());
+create policy "staff can create members" on members for insert with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "staff can update members" on members for update using (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach','front_desk')) with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "staff can read pass templates" on pass_templates for select using (organization_id = current_staff_organization_id());
+create policy "owners admins can create pass templates" on pass_templates for insert with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin'));
+create policy "owners admins can update pass templates" on pass_templates for update using (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin')) with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin'));
+create policy "staff can read member passes" on member_passes for select using (organization_id = current_staff_organization_id());
+create policy "staff can create member passes" on member_passes for insert with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach'));
+create policy "owners admins can update member passes" on member_passes for update using (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin')) with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin'));
+create policy "staff can read attendance" on attendance_logs for select using (organization_id = current_staff_organization_id());
+create policy "staff can create attendance" on attendance_logs for insert with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "owners admins can update attendance" on attendance_logs for update using (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin')) with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin'));
+create policy "staff can read notes" on member_notes for select using (organization_id = current_staff_organization_id());
+create policy "staff can create notes" on member_notes for insert with check (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "staff can update own notes" on member_notes for update using (organization_id = current_staff_organization_id() and (created_by = current_staff_id() or current_staff_role() in ('owner','admin'))) with check (organization_id = current_staff_organization_id() and (created_by = current_staff_id() or current_staff_role() in ('owner','admin')));
+create policy "owners admins can read audit" on audit_logs for select using (organization_id = current_staff_organization_id() and current_staff_role() in ('owner','admin'));
+create policy "staff can insert audit" on audit_logs for insert with check (organization_id = current_staff_organization_id());
 
 create or replace function check_in_member(
   p_member_id uuid,
@@ -357,6 +282,8 @@ begin
     v_pass.service_type, 'checked_in', p_source, 1, p_actor_id
   );
 
+  perform set_config('app.allow_session_adjustment', 'true', true);
+
   update member_passes
   set used_sessions = used_sessions + 1,
       remaining_sessions = remaining_sessions - 1,
@@ -415,7 +342,9 @@ begin
   set status = 'cancelled', cancelled_by = p_actor_id, cancelled_at = now(), memo = p_reason
   where id = p_attendance_id;
 
-  update member_passes
+    perform set_config('app.allow_session_adjustment', 'true', true);
+
+    update member_passes
   set used_sessions = greatest(used_sessions - 1, 0),
       remaining_sessions = remaining_sessions + 1,
       status = case when status = 'used_up' then 'active' else status end,
@@ -457,6 +386,8 @@ begin
   if nullif(trim(p_reason), '') is null then
     raise exception '잔여 횟수 수정 사유가 필요합니다.';
   end if;
+
+  perform set_config('app.allow_session_adjustment', 'true', true);
 
   update member_passes
   set remaining_sessions = greatest(remaining_sessions + p_amount, 0),

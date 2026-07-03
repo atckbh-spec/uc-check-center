@@ -1,0 +1,4 @@
+-- DEPRECATED COMPATIBILITY FILE
+-- Do not run this file in new or existing environments.
+-- Use the canonical migration order from README.md:
+-- 001_schema.sql -> 002_security_hardening.sql -> 003_member_registration_fields.sql -> 004_operational_hardening.sql -> 20260629_staff_command_dashboard_indexes.sql

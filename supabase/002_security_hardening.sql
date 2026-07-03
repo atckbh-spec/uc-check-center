@@ -15,57 +15,6 @@ on public.attendance_logs(organization_id, attendance_date, status);
 create index if not exists idx_attendance_member_date_status
 on public.attendance_logs(member_id, attendance_date, status);
 
-
--- 1-1. RLS helper 함수는 staff_users RLS 재귀를 피하기 위해 security definer로 고정합니다.
-create or replace function public.current_staff_organization_id()
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select organization_id
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
-  limit 1
-$$;
-
-create or replace function public.current_staff_role()
-returns text
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select role
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
-  limit 1
-$$;
-
-create or replace function public.current_staff_id()
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select id
-  from public.staff_users
-  where auth_user_id = auth.uid()
-    and is_active = true
-  limit 1
-$$;
-
-revoke execute on function public.current_staff_organization_id() from public, anon;
-revoke execute on function public.current_staff_role() from public, anon;
-revoke execute on function public.current_staff_id() from public, anon;
-grant execute on function public.current_staff_organization_id() to authenticated, service_role;
-grant execute on function public.current_staff_role() to authenticated, service_role;
-grant execute on function public.current_staff_id() to authenticated, service_role;
-
 -- 2. Staff actor 검증 helper
 create or replace function public.assert_staff_actor(
   p_actor_id uuid,
@@ -105,6 +54,113 @@ end;
 $$;
 
 revoke execute on function public.assert_staff_actor(uuid, text[]) from public, anon, authenticated;
+
+create or replace function public.prevent_direct_member_pass_session_update()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if (
+    new.used_sessions is distinct from old.used_sessions
+    or new.remaining_sessions is distinct from old.remaining_sessions
+  ) and coalesce(current_setting('app.allow_session_adjustment', true), '') <> 'true' then
+    raise exception '잔여횟수는 승인된 RPC를 통해서만 수정할 수 있습니다.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_member_pass_session_counts on public.member_passes;
+create trigger protect_member_pass_session_counts
+before update on public.member_passes
+for each row execute function public.prevent_direct_member_pass_session_update();
+
+create or replace function public.current_staff_organization_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select organization_id from public.staff_users
+  where auth_user_id = auth.uid() and is_active = true
+  limit 1
+$$;
+
+create or replace function public.current_staff_role()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from public.staff_users
+  where auth_user_id = auth.uid() and is_active = true
+  limit 1
+$$;
+
+create or replace function public.current_staff_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id from public.staff_users
+  where auth_user_id = auth.uid() and is_active = true
+  limit 1
+$$;
+
+drop policy if exists "staff can manage members" on public.members;
+drop policy if exists "staff can read members" on public.members;
+drop policy if exists "staff can create members" on public.members;
+drop policy if exists "staff can update members" on public.members;
+drop policy if exists "owners and admins can delete members" on public.members;
+create policy "staff can read members" on public.members for select using (organization_id = public.current_staff_organization_id());
+create policy "staff can create members" on public.members for insert with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "staff can update members" on public.members for update using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach','front_desk')) with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach','front_desk'));
+
+drop policy if exists "staff can manage pass templates" on public.pass_templates;
+drop policy if exists "staff can read pass templates" on public.pass_templates;
+drop policy if exists "owners admins can create pass templates" on public.pass_templates;
+drop policy if exists "owners admins can update pass templates" on public.pass_templates;
+create policy "staff can read pass templates" on public.pass_templates for select using (organization_id = public.current_staff_organization_id());
+create policy "owners admins can create pass templates" on public.pass_templates for insert with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+create policy "owners admins can update pass templates" on public.pass_templates for update using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin')) with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+
+drop policy if exists "staff can manage member passes" on public.member_passes;
+drop policy if exists "staff can read member passes" on public.member_passes;
+drop policy if exists "staff can create member passes" on public.member_passes;
+drop policy if exists "owners admins can update member passes" on public.member_passes;
+drop policy if exists "owners admins can delete member passes" on public.member_passes;
+create policy "staff can read member passes" on public.member_passes for select using (organization_id = public.current_staff_organization_id());
+create policy "staff can create member passes" on public.member_passes for insert with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach'));
+create policy "owners admins can update member passes" on public.member_passes for update using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin')) with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+
+drop policy if exists "staff can manage attendance" on public.attendance_logs;
+drop policy if exists "staff can read attendance" on public.attendance_logs;
+drop policy if exists "staff can create attendance" on public.attendance_logs;
+drop policy if exists "owners admins can update attendance" on public.attendance_logs;
+drop policy if exists "owners admins can delete attendance" on public.attendance_logs;
+create policy "staff can read attendance" on public.attendance_logs for select using (organization_id = public.current_staff_organization_id());
+create policy "staff can create attendance" on public.attendance_logs for insert with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "owners admins can update attendance" on public.attendance_logs for update using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin')) with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+
+drop policy if exists "staff can manage notes" on public.member_notes;
+drop policy if exists "staff can read notes" on public.member_notes;
+drop policy if exists "staff can create notes" on public.member_notes;
+drop policy if exists "staff can update own notes" on public.member_notes;
+create policy "staff can read notes" on public.member_notes for select using (organization_id = public.current_staff_organization_id());
+create policy "staff can create notes" on public.member_notes for insert with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin','coach','front_desk'));
+create policy "staff can update own notes" on public.member_notes for update using (organization_id = public.current_staff_organization_id() and (created_by = public.current_staff_id() or public.current_staff_role() in ('owner','admin'))) with check (organization_id = public.current_staff_organization_id() and (created_by = public.current_staff_id() or public.current_staff_role() in ('owner','admin')));
+
+drop policy if exists "staff can read audit" on public.audit_logs;
+drop policy if exists "owners admins can read audit" on public.audit_logs;
+drop policy if exists "staff can insert audit" on public.audit_logs;
+create policy "owners admins can read audit" on public.audit_logs for select using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+create policy "staff can insert audit" on public.audit_logs for insert with check (organization_id = public.current_staff_organization_id());
 
 -- 3. 출석 체크 함수 보강
 create or replace function public.check_in_member(
@@ -223,6 +279,8 @@ begin
     case when p_source = 'staff' then p_actor_id else null end
   );
 
+  perform set_config('app.allow_session_adjustment', 'true', true);
+
   update public.member_passes
   set used_sessions = used_sessions + 1,
       remaining_sessions = v_remaining_after,
@@ -310,6 +368,8 @@ begin
   where id = p_attendance_id;
 
   if v_log.member_pass_id is not null and coalesce(v_log.deducted_sessions, 0) > 0 then
+    perform set_config('app.allow_session_adjustment', 'true', true);
+
     update public.member_passes
     set used_sessions = greatest(used_sessions - v_log.deducted_sessions, 0),
         remaining_sessions = remaining_sessions + v_log.deducted_sessions,
@@ -385,6 +445,8 @@ begin
 
   v_new_remaining := least(v_pass.total_sessions, greatest(v_pass.remaining_sessions + p_amount, 0));
 
+  perform set_config('app.allow_session_adjustment', 'true', true);
+
   update public.member_passes
   set remaining_sessions = v_new_remaining,
       used_sessions = greatest(total_sessions - v_new_remaining, 0),
@@ -430,30 +492,21 @@ create table if not exists public.kiosk_attempt_logs (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid references public.organizations(id) on delete set null,
   phone_last4 text,
-  result text not null check (result in ('found','not_found','too_many','blocked','checked_in','pin_failed','error')),
+  result text not null check (result in ('found','not_found','too_many','blocked','checked_in','error')),
   ip_hash text,
   user_agent text,
   created_at timestamptz not null default now()
 );
 
-alter table public.kiosk_attempt_logs drop constraint if exists kiosk_attempt_logs_result_check;
-alter table public.kiosk_attempt_logs add constraint kiosk_attempt_logs_result_check
-check (result in ('found','not_found','too_many','blocked','checked_in','pin_failed','error'));
-
 alter table public.kiosk_attempt_logs enable row level security;
 
-revoke all on table public.kiosk_attempt_logs from anon, authenticated;
-grant select on table public.kiosk_attempt_logs to authenticated;
-grant insert on table public.kiosk_attempt_logs to service_role;
-
 drop policy if exists "staff can read kiosk attempt logs" on public.kiosk_attempt_logs;
-drop policy if exists "service can insert kiosk attempt logs" on public.kiosk_attempt_logs;
-
 create policy "staff can read kiosk attempt logs"
 on public.kiosk_attempt_logs
 for select
 using (organization_id = public.current_staff_organization_id());
 
+drop policy if exists "service can insert kiosk attempt logs" on public.kiosk_attempt_logs;
 create policy "service can insert kiosk attempt logs"
 on public.kiosk_attempt_logs
 for insert

@@ -4,26 +4,8 @@ export function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
 }
 
-function memberPinPayload(organizationId: string, phone: string, pin: string) {
-  return `${organizationId}:${digitsOnly(phone)}:${pin}`;
-}
-
-function memberPinPepper() {
-  return process.env.MEMBER_PIN_PEPPER || "";
-}
-
 export function hashMemberPin(organizationId: string, phone: string, pin: string) {
-  const pepper = memberPinPepper();
-  return crypto.createHash("sha256").update(`${memberPinPayload(organizationId, phone, pin)}:${pepper}`).digest("hex");
-}
-
-export function hashMemberPinLegacy(organizationId: string, phone: string, pin: string) {
-  return crypto.createHash("sha256").update(memberPinPayload(organizationId, phone, pin)).digest("hex");
-}
-
-export function verifyMemberPinHash(organizationId: string, phone: string, pin: string, storedHash: string | null | undefined) {
-  if (!storedHash) return false;
-  return hashMemberPin(organizationId, phone, pin) === storedHash || hashMemberPinLegacy(organizationId, phone, pin) === storedHash;
+  return crypto.createHash("sha256").update(`${organizationId}:${digitsOnly(phone)}:${pin}`).digest("hex");
 }
 
 export function normalizePin(value: string) {

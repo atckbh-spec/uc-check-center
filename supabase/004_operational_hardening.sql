@@ -80,18 +80,33 @@ drop policy if exists "staff can insert audit" on public.audit_logs;
 drop policy if exists "staff can read staff in organization" on public.staff_users;
 drop policy if exists "owners can manage staff in organization" on public.staff_users;
 drop policy if exists "staff can read members" on public.members;
+drop policy if exists "staff can create members" on public.members;
+drop policy if exists "staff can update members" on public.members;
+drop policy if exists "owners and admins can delete members" on public.members;
 drop policy if exists "ops staff can create members" on public.members;
 drop policy if exists "ops staff can update members" on public.members;
 drop policy if exists "staff can read pass templates" on public.pass_templates;
 drop policy if exists "admins can manage pass templates" on public.pass_templates;
+drop policy if exists "admins can create pass templates" on public.pass_templates;
+drop policy if exists "admins can update pass templates" on public.pass_templates;
+drop policy if exists "owners admins can create pass templates" on public.pass_templates;
+drop policy if exists "owners admins can update pass templates" on public.pass_templates;
 drop policy if exists "staff can read member passes" on public.member_passes;
+drop policy if exists "staff can create member passes" on public.member_passes;
+drop policy if exists "owners admins can update member passes" on public.member_passes;
+drop policy if exists "owners admins can delete member passes" on public.member_passes;
 drop policy if exists "ops staff can create member passes" on public.member_passes;
 drop policy if exists "admins can update member passes" on public.member_passes;
 drop policy if exists "staff can read attendance" on public.attendance_logs;
+drop policy if exists "staff can create attendance" on public.attendance_logs;
+drop policy if exists "owners admins can update attendance" on public.attendance_logs;
+drop policy if exists "owners admins can delete attendance" on public.attendance_logs;
 drop policy if exists "staff can insert no show attendance" on public.attendance_logs;
 drop policy if exists "staff can read notes" on public.member_notes;
 drop policy if exists "staff can create notes" on public.member_notes;
+drop policy if exists "staff can update own notes" on public.member_notes;
 drop policy if exists "note authors and admins can update notes" on public.member_notes;
+drop policy if exists "owners admins can read audit" on public.audit_logs;
 drop policy if exists "admins can read audit" on public.audit_logs;
 
 -- Organizations
@@ -137,8 +152,12 @@ create policy "staff can read pass templates" on public.pass_templates
 for select
 using (organization_id = public.current_staff_organization_id());
 
-create policy "admins can manage pass templates" on public.pass_templates
-for all
+create policy "admins can create pass templates" on public.pass_templates
+for insert
+with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
+
+create policy "admins can update pass templates" on public.pass_templates
+for update
 using (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'))
 with check (organization_id = public.current_staff_organization_id() and public.current_staff_role() in ('owner','admin'));
 

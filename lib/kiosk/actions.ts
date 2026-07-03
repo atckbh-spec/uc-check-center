@@ -1,11 +1,10 @@
 "use server";
 
 import { isDemoMode } from "@/lib/config/env";
-import { logKioskAttempt } from "@/lib/kiosk/attempt-log";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { CheckInResult } from "@/lib/types";
 import { todayInKorea } from "@/lib/utils/format-date";
-import { digitsOnly, normalizePin, verifyMemberPinHash } from "@/lib/utils/member-pin";
+import { digitsOnly, hashMemberPin, normalizePin } from "@/lib/utils/member-pin";
 
 async function validateKioskMemberPin(memberId: string, pin: string) {
   const normalizedPin = normalizePin(pin);
@@ -34,13 +33,12 @@ async function validateKioskMemberPin(memberId: string, pin: string) {
     return normalizedPin === data.phone_last4 || normalizedPin === digitsOnly(data.phone).slice(-4);
   }
 
-  return verifyMemberPinHash(data.organization_id, data.phone, normalizedPin, data.pin_hash);
+  return hashMemberPin(data.organization_id, data.phone, normalizedPin) === data.pin_hash;
 }
 
 export async function checkInMemberFromKiosk(memberId: string, memberPassId: string, pin: string): Promise<CheckInResult> {
   const pinOk = await validateKioskMemberPin(memberId, pin);
   if (!pinOk) {
-    await logKioskAttempt({ result: "pin_failed" });
     return {
       success: false,
       message: "개인 PIN 번호가 일치하지 않습니다. 다시 입력하거나 스태프에게 문의해 주세요."
@@ -67,11 +65,6 @@ export async function checkInMemberFromKiosk(memberId: string, memberPassId: str
     p_source: "kiosk"
   });
 
-  if (error) {
-    await logKioskAttempt({ result: "error" });
-    return { success: false, message: error.message };
-  }
-
-  await logKioskAttempt({ result: "checked_in" });
+  if (error) return { success: false, message: error.message };
   return data as CheckInResult;
 }

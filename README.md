@@ -9,7 +9,7 @@ pnpm install
 cp .env.example .env.local
 ```
 
-`.env.local`에 실제 값을 입력합니다.
+`.env.local`에는 실제 운영 값을 입력합니다.
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
@@ -23,13 +23,12 @@ MEMBER_PIN_PEPPER=replace-with-another-long-random-string
 ```
 
 보안 기준:
-
 - `NEXT_PUBLIC_DEMO_MODE=true`일 때만 데모 모드가 켜집니다.
-- production build phase에서는 더 이상 demo staff/demo data로 인증을 우회하지 않습니다.
+- production build phase에서 demo staff/demo data로 인증을 우회하지 않습니다.
 - Supabase 환경변수가 없다고 자동으로 데모 모드가 되지 않습니다.
 - production에서는 `KIOSK_UNLOCK_PIN`이 6자리 이상이어야 합니다.
 - `KIOSK_COOKIE_SECRET`과 `MEMBER_PIN_PEPPER`는 운영 환경에서 긴 랜덤 문자열로 설정합니다.
-- `SUPABASE_SERVICE_ROLE_KEY`는 서버 액션에서만 사용하며 클라이언트에 노출하지 않습니다.
+- `SUPABASE_SERVICE_ROLE_KEY`는 서버 액션에서만 사용하고 클라이언트에 노출하지 않습니다.
 
 ## Supabase SQL 적용 순서
 
@@ -40,23 +39,18 @@ MEMBER_PIN_PEPPER=replace-with-another-long-random-string
 3. `supabase/003_member_registration_fields.sql`
 4. `supabase/004_operational_hardening.sql`
 5. `supabase/20260629_staff_command_dashboard_indexes.sql`
-6. `supabase/005_operations_ui_support.sql`
 
-기존 DB를 운영 중인 경우 아래 순서로 적용합니다.
+기존 DB를 운영 중인 경우 전체 `schema.sql`을 다시 실행하지 말고, 백업 후 migration만 순서대로 적용합니다.
 
-1. 현재 DB 백업
-2. `supabase/002_security_hardening.sql`
-3. `supabase/003_member_registration_fields.sql`
-4. `supabase/004_operational_hardening.sql`
-5. `supabase/20260629_staff_command_dashboard_indexes.sql`
-6. `supabase/005_operations_ui_support.sql`
+1. `supabase/002_security_hardening.sql`
+2. `supabase/003_member_registration_fields.sql`
+3. `supabase/004_operational_hardening.sql`
+4. `supabase/20260629_staff_command_dashboard_indexes.sql`
 
 중요:
-
-- 기존 DB에는 전체 `schema.sql`을 다시 실행하지 마세요.
-- `supabase/schema.sql`은 참고용 통합 스냅샷입니다. 실제 적용은 위 migration 순서를 우선합니다.
-- `supabase/01_security_hardening.sql`, `supabase/02_member_registration_fields.sql`, `supabase/20260629_kiosk_demo1_hardening.sql`은 이전 패치 호환용 파일입니다. 새 환경에서는 위 순서의 `001~005` 파일을 사용하세요.
-- `004_operational_hardening.sql`은 broad `for all` RLS policy를 역할별 policy로 세분화하고, `current_staff_*` helper를 `security definer`로 고정합니다.
+- `supabase/schema.sql`은 전체 기준 스키마 참고용입니다.
+- `supabase/01_security_hardening.sql`, `supabase/02_member_registration_fields.sql`, `supabase/20260629_kiosk_demo1_hardening.sql`은 이전 패치 호환용 파일입니다. 신규 운영 배포에서는 위의 `001~004` 순서를 사용합니다.
+- `004_operational_hardening.sql`은 broad `for all` RLS policy를 제거하고 역할별 policy로 세분화하며, `current_staff_*` helper를 `security definer`로 고정합니다.
 
 ## 최초 조직/운영자 연결
 
@@ -96,34 +90,3 @@ pnpm typecheck
 pnpm lint
 pnpm build
 ```
-
-빌드 후 확인해야 하는 핵심 사항:
-
-- `/dashboard`, `/attendance/today`, `/members/new`, `/settings/staff`가 static route로 출력되지 않아야 합니다.
-- 로그인하지 않은 상태에서 staff 페이지 접근 시 `/login`으로 redirect되어야 합니다.
-- `/kiosk`는 unlock cookie가 없으면 `/kiosk/unlock`으로 redirect되어야 합니다.
-
-## Center Operations Launch
-
-Use `README_CENTER_OPERATIONS.md` as the entry point for Urban Conditioning internal center launch.
-
-- `README_CENTER_OPERATIONS.md`: center operations v1 scope and launch flow
-- `CENTER_OPERATIONS_GO_LIVE_CHECKLIST.md`: go-live checklist
-- `CENTER_STAFF_OPERATION_MANUAL.md`: staff operation manual
-- `CENTER_DATA_AND_PRIVACY_POLICY.md`: center data and privacy policy
-- `CENTER_UPDATE_ROADMAP.md`: v1.1+ update roadmap
-- `README_DEPLOYMENT.md`: technical Vercel + Supabase hosting notes
-
-Run center launch checks with:
-
-```bash
-npm run center:check
-```
-
-Run center preflight only with:
-
-```bash
-npm run center:preflight
-```
-
-Do not apply `supabase/006_qa_seed_data.sql` to the live center database. It is for QA/UAT data only.

@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StaffOnlyLayout } from "@/components/layout/StaffOnlyLayout";
 
-export const dynamic = "force-dynamic";
-
 const roleLabel: Record<string, string> = {
   owner: "운영자",
   admin: "관리자",
@@ -30,6 +28,8 @@ function SummaryCard({ label, value, icon: Icon }: { label: string; value: numbe
     </Card>
   );
 }
+
+export const dynamic = "force-dynamic";
 
 export default async function StaffSettingsPage() {
   const currentStaff = await requireStaffUser();

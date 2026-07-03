@@ -10,8 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export const dynamic = "force-dynamic";
-
 const sourceLabel: Record<string, string> = {
   kiosk: "키오스크",
   staff: "직원",
@@ -33,6 +31,8 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
+export const dynamic = "force-dynamic";
 
 export default async function TodayAttendancePage() {
   const staff = await requireStaffUser();

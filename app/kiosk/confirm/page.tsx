@@ -11,11 +11,11 @@ import { checkInMemberFromKiosk } from "@/lib/kiosk/actions";
 import { getKioskMemberPreview } from "@/lib/kiosk/queries";
 import { todayInKorea } from "@/lib/utils/format-date";
 
-export const dynamic = "force-dynamic";
-
 function getParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value ?? "";
 }
+
+export const dynamic = "force-dynamic";
 
 export default async function KioskConfirmPage({ searchParams }: { searchParams: { memberId?: string | string[]; passId?: string | string[] } }) {
   await requireKioskAccess();

@@ -1,0 +1,6 @@
+-- DEPRECATED COMPATIBILITY FILE
+-- Do not run this file. It has been superseded by:
+-- 002_security_hardening.sql
+-- 004_operational_hardening.sql
+--
+-- The latest check_in_member RPC must keep the service_role-only guard for kiosk check-ins.

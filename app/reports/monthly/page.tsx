@@ -5,8 +5,6 @@ import { StaffOnlyLayout } from "@/components/layout/StaffOnlyLayout";
 import { requireStaffUser } from "@/lib/auth/require-staff";
 import { getMonthlySummary } from "@/lib/reports/queries";
 
-export const dynamic = "force-dynamic";
-
 type ViewMode = "daily" | "weekly" | "source";
 
 function StatCard({ label, value, detail }: { label: string; value: string | number; detail?: string }) {
@@ -35,6 +33,8 @@ function getWeekKey(date: string) {
   const day = Number(date.slice(-2));
   return `${Math.ceil(day / 7)}주차`;
 }
+
+export const dynamic = "force-dynamic";
 
 export default async function MonthlyReportPage({ searchParams }: { searchParams: { year?: string; month?: string; view?: ViewMode } }) {
   const staff = await requireStaffUser();

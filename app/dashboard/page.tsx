@@ -18,8 +18,6 @@ import { requireStaffUser } from "@/lib/auth/require-staff";
 import { getDashboardMetrics } from "@/lib/reports/queries";
 import { formatKoreanLongDate } from "@/lib/utils/format-date";
 
-export const dynamic = "force-dynamic";
-
 type RenewalCandidateRow = {
   id: string;
   pass_name: string;
@@ -34,6 +32,8 @@ type InactiveMemberRow = {
   phone?: string | null;
   last_visit_date?: string | null;
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const staff = await requireStaffUser();

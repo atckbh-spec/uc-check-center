@@ -6,11 +6,11 @@ import { KioskShell } from "@/components/kiosk/KioskShell";
 import { requireKioskAccess } from "@/lib/kiosk/access";
 import { getKioskSearchResultByLast4 } from "@/lib/kiosk/queries";
 
-export const dynamic = "force-dynamic";
-
 function getParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value ?? "";
 }
+
+export const dynamic = "force-dynamic";
 
 export default async function KioskSearchPage({ searchParams }: { searchParams: { last4?: string | string[] } }) {
   await requireKioskAccess();
