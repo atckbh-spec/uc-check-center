@@ -79,3 +79,14 @@ export async function adjustRemainingSessions(passId: string, amount: number, re
   revalidatePath("/members");
   return data;
 }
+
+export async function adjustRemainingSessionsFromForm(formData: FormData) {
+  const passId = String(formData.get("pass_id") || formData.get("member_pass_id") || "").trim();
+  const amount = Number(formData.get("amount") || formData.get("session_delta") || 0);
+  const reason = String(formData.get("reason") || formData.get("memo") || "잔여횟수 조정").trim();
+
+  if (!passId) throw new Error("회원권 정보를 찾을 수 없습니다.");
+  if (!Number.isFinite(amount) || amount === 0) throw new Error("조정할 횟수를 입력해 주세요.");
+
+  return adjustRemainingSessions(passId, amount, reason);
+}
