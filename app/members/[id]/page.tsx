@@ -1,5 +1,5 @@
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock, TrendingUp, UserCog } from "lucide-react";
-import { checkInMemberAndRedirect } from "@/lib/attendance/actions";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, RotateCcw, TrendingUp, UserCog } from "lucide-react";
+import { cancelAttendanceFromForm, checkInMemberFromForm } from "@/lib/attendance/actions";
 import { requireStaffUser } from "@/lib/auth/require-staff";
 import { getMemberDetail } from "@/lib/members/queries";
 import { createMemberPass } from "@/lib/passes/actions";
@@ -65,11 +65,12 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   ]);
   const assignableStaff = getAssignableStaff(staffUsers);
   const assignedStaff = staffUsers.find((item) => item.id === member.assigned_coach_id);
-  const memberPasses = member.member_passes ?? [];
-  const activePasses = memberPasses.filter((pass) => pass.status === "active");
+  const activePasses = (member.member_passes ?? []).filter((pass) => pass.status === "active");
   const checkablePasses = activePasses.filter((pass) => pass.remaining_sessions > 0);
   const primaryPass = checkablePasses[0] ?? activePasses[0];
   const attendanceLogs = (member.attendance_logs ?? []) as any[];
+  const today = todayInKorea();
+  const todayCheckedInLog = attendanceLogs.find((log) => log.attendance_date === today && log.status === "checked_in");
   const visitsLast30 = attendanceLogs.filter((log) => {
     const time = new Date(log.checkin_at).getTime();
     return log.status === "checked_in" && time >= Date.now() - 30 * 86400000;
@@ -87,16 +88,25 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         title={member.name}
         description={`${maskPhone(member.phone)} · ${memberStatusLabel[member.status] ?? member.status}`}
         actions={
-          primaryPass && primaryPass.remaining_sessions > 0 ? (
-            <form action={checkInMemberAndRedirect}>
+          <div className="flex flex-wrap gap-2">
+            <form action={checkInMemberFromForm}>
               <input type="hidden" name="member_id" value={member.id} />
-              <input type="hidden" name="member_pass_id" value={primaryPass.id} />
-              <Button type="submit" className="h-12 px-6 text-base font-bold">
+              <input type="hidden" name="member_pass_id" value={primaryPass?.id ?? ""} />
+              <Button type="submit" className="h-12 px-6 text-base font-bold" disabled={!primaryPass || primaryPass.remaining_sessions <= 0 || Boolean(todayCheckedInLog)}>
                 <CheckCircle2 className="size-5" />
-                출석 체크
+                수기 출석 처리
               </Button>
             </form>
-          ) : null
+            <form action={cancelAttendanceFromForm}>
+              <input type="hidden" name="attendance_id" value={todayCheckedInLog?.id ?? ""} />
+              <input type="hidden" name="member_id" value={member.id} />
+              <input type="hidden" name="reason" value="수기 출석 취소" />
+              <Button type="submit" variant="secondary" className="h-12 px-6 text-base font-bold" disabled={!todayCheckedInLog}>
+                <RotateCcw className="size-5" />
+                출석 취소
+              </Button>
+            </form>
+          </div>
         }
       />
 
@@ -109,6 +119,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         ) : (
           <Badge className="bg-gray-100 text-gray-700">담당 미지정</Badge>
         )}
+        {todayCheckedInLog ? <Badge className="bg-brand-soft text-brand-dark">오늘 출석 완료</Badge> : <Badge className="bg-gray-100 text-gray-700">오늘 미출석</Badge>}
         {isRenewal ? (
           <Badge className="bg-[#fff1e8] text-action">
             <AlertTriangle className="mr-1 size-3" />
@@ -162,26 +173,36 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               {activePasses.map((pass) => {
                 const usedRate = pass.total_sessions > 0 ? Math.round((pass.used_sessions / pass.total_sessions) * 100) : 0;
                 const remainingRate = Math.max(0, Math.min(100, 100 - usedRate));
+                const passCheckedInLog = attendanceLogs.find((log) => log.attendance_date === today && log.status === "checked_in" && log.member_pass_id === pass.id);
                 return (
                   <div key={pass.id} className="rounded-md border border-line p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <div className="text-xl font-bold">{pass.pass_name}</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-xl font-bold">{pass.pass_name}</div>
+                          {passCheckedInLog ? <Badge className="bg-brand-soft text-brand-dark">오늘 출석 완료</Badge> : null}
+                        </div>
                         <div className="mt-1 text-sm text-muted">
                           사용 {pass.used_sessions}회 · 잔여 {pass.remaining_sessions}회 · 전체 {pass.total_sessions}회
                         </div>
                       </div>
-                      {pass.remaining_sessions > 0 ? (
-                        <form action={checkInMemberAndRedirect}>
+                      <div className="flex flex-wrap gap-2">
+                        <form action={checkInMemberFromForm}>
                           <input type="hidden" name="member_id" value={member.id} />
                           <input type="hidden" name="member_pass_id" value={pass.id} />
-                          <Button type="submit" className="h-12 min-w-36 text-base font-bold">
+                          <Button type="submit" className="h-12 min-w-36 text-base font-bold" disabled={pass.remaining_sessions <= 0 || Boolean(todayCheckedInLog)}>
                             수기 출석 처리
                           </Button>
                         </form>
-                      ) : (
-                        <Badge className="bg-gray-100 text-gray-700">잔여 없음</Badge>
-                      )}
+                        <form action={cancelAttendanceFromForm}>
+                          <input type="hidden" name="attendance_id" value={passCheckedInLog?.id ?? ""} />
+                          <input type="hidden" name="member_id" value={member.id} />
+                          <input type="hidden" name="reason" value="수기 출석 취소" />
+                          <Button type="submit" variant="secondary" className="h-12 min-w-28 text-base font-bold" disabled={!passCheckedInLog}>
+                            출석 취소
+                          </Button>
+                        </form>
+                      </div>
                     </div>
                     <div className="mt-5">
                       <div className="flex justify-between text-sm text-muted">

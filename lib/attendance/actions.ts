@@ -8,6 +8,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { CheckInResult } from "@/lib/types";
 import { todayInKorea } from "@/lib/utils/format-date";
 
+function refreshAttendanceViews(memberId?: string) {
+  revalidatePath("/dashboard");
+  revalidatePath("/attendance/today");
+  revalidatePath("/members");
+  if (memberId) revalidatePath(`/members/${memberId}`);
+}
+
 export async function checkInMember(formData: FormData): Promise<CheckInResult> {
   const staff = await requireStaffUser();
   const memberId = String(formData.get("member_id") || "");
@@ -21,13 +28,26 @@ export async function checkInMember(formData: FormData): Promise<CheckInResult> 
     p_source: "staff"
   });
 
-  if (error) return { success: false, message: error.message };
+  if (error) {
+    console.error("Manual check-in failed", {
+      memberId,
+      memberPassId,
+      code: error.code,
+      message: error.message
+    });
+    return { success: false, message: error.message };
+  }
 
-  revalidatePath("/dashboard");
-  revalidatePath("/attendance/today");
-  revalidatePath("/members");
-  revalidatePath(`/members/${memberId}`);
+  refreshAttendanceViews(memberId);
   return data as CheckInResult;
+}
+
+export async function checkInMemberFromForm(formData: FormData) {
+  const result = await checkInMember(formData);
+  if (!result.success) {
+    const memberId = String(formData.get("member_id") || "");
+    refreshAttendanceViews(memberId);
+  }
 }
 
 export async function checkInMemberAndRedirect(formData: FormData) {
@@ -49,15 +69,14 @@ export async function cancelAttendance(attendanceId: string, reason: string) {
   const staff = await requireRole(["owner", "admin"]);
 
   if (isDemoMode()) {
-    revalidatePath("/attendance/today");
-    revalidatePath("/dashboard");
+    refreshAttendanceViews();
     return;
   }
 
   const supabase = await createSupabaseServerClient();
   const { data: log, error: logError } = await supabase
     .from("attendance_logs")
-    .select("id")
+    .select("id, member_id")
     .eq("id", attendanceId)
     .eq("organization_id", staff.organization_id)
     .single();
@@ -72,21 +91,19 @@ export async function cancelAttendance(attendanceId: string, reason: string) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/attendance/today");
-  revalidatePath("/dashboard");
-  revalidatePath("/members");
+  refreshAttendanceViews(log.member_id);
 }
 
 export async function cancelAttendanceFromForm(formData: FormData) {
   const attendanceId = String(formData.get("attendance_id") || "");
   const memberId = String(formData.get("member_id") || "");
-  const reason = String(formData.get("reason") || "").trim();
+  const reason = String(formData.get("reason") || "수기 출석 취소").trim();
 
   if (!attendanceId) throw new Error("취소할 출석 기록을 찾을 수 없습니다.");
   if (reason.length < 2) throw new Error("취소 사유를 2자 이상 입력해 주세요.");
 
   await cancelAttendance(attendanceId, reason);
-  if (memberId) revalidatePath(`/members/${memberId}`);
+  if (memberId) refreshAttendanceViews(memberId);
 }
 
 export async function markNoShow(formData: FormData) {
@@ -95,8 +112,7 @@ export async function markNoShow(formData: FormData) {
   const memberPassId = String(formData.get("member_pass_id") || "") || null;
 
   if (isDemoMode()) {
-    revalidatePath("/attendance/today");
-    revalidatePath(`/members/${memberId}`);
+    refreshAttendanceViews(memberId);
     return;
   }
 
@@ -137,8 +153,5 @@ export async function markNoShow(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/attendance/today");
-  revalidatePath("/dashboard");
-  revalidatePath("/members");
-  revalidatePath(`/members/${memberId}`);
+  refreshAttendanceViews(memberId);
 }

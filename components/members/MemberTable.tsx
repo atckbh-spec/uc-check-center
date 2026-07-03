@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { CheckCircle2 } from "lucide-react";
-import { checkInMemberAndRedirect } from "@/lib/attendance/actions";
+import { CheckCircle2, RotateCcw } from "lucide-react";
+import { cancelAttendanceFromForm, checkInMemberFromForm } from "@/lib/attendance/actions";
 import { MemberStatusBadge } from "@/components/members/MemberStatusBadge";
 import { maskPhone } from "@/lib/utils/mask-phone";
 import { getMemberStatusTags } from "@/lib/utils/status-tags";
@@ -13,7 +13,7 @@ export function MemberTable({ members }: { members: any[] }) {
 
   return (
     <div className="overflow-x-auto rounded-md border border-line bg-white">
-      <table className="w-full min-w-[980px] text-left text-sm">
+      <table className="w-full min-w-[1040px] text-left text-sm">
         <thead className="bg-surface text-muted">
           <tr>
             <th className="px-4 py-3">회원명</th>
@@ -31,7 +31,8 @@ export function MemberTable({ members }: { members: any[] }) {
             const activePasses = (member.member_passes ?? []).filter((pass: any) => pass.status === "active" && pass.remaining_sessions > 0);
             const activePass = activePasses[0];
             const todayLogs = (member.attendance_logs ?? []).filter((log: any) => log.attendance_date === today);
-            const checkedInToday = todayLogs.some((log: any) => log.status === "checked_in");
+            const checkedInLog = todayLogs.find((log: any) => log.status === "checked_in");
+            const checkedInToday = Boolean(checkedInLog);
             const tags = getMemberStatusTags(member, activePass);
 
             return (
@@ -61,20 +62,25 @@ export function MemberTable({ members }: { members: any[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  {activePass && !checkedInToday ? (
-                    <form action={checkInMemberAndRedirect}>
+                  <div className="flex flex-wrap gap-2">
+                    <form action={checkInMemberFromForm}>
                       <input type="hidden" name="member_id" value={member.id} />
-                      <input type="hidden" name="member_pass_id" value={activePass.id} />
-                      <Button type="submit" className="h-10 px-3">
+                      <input type="hidden" name="member_pass_id" value={activePass?.id ?? ""} />
+                      <Button type="submit" className="h-10 px-3" disabled={!activePass || checkedInToday}>
                         <CheckCircle2 className="size-4" />
-                        수기 출석
+                        수기 출석 처리
                       </Button>
                     </form>
-                  ) : checkedInToday ? (
-                    <span className="text-xs font-semibold text-brand-dark">오늘 처리 완료</span>
-                  ) : (
-                    <span className="text-xs text-muted">활성 회원권 없음</span>
-                  )}
+                    <form action={cancelAttendanceFromForm}>
+                      <input type="hidden" name="attendance_id" value={checkedInLog?.id ?? ""} />
+                      <input type="hidden" name="member_id" value={member.id} />
+                      <input type="hidden" name="reason" value="수기 출석 취소" />
+                      <Button type="submit" variant="secondary" className="h-10 px-3" disabled={!checkedInLog}>
+                        <RotateCcw className="size-4" />
+                        출석 취소
+                      </Button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             );
