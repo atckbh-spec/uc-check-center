@@ -3,30 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuditLog } from "@/lib/audit/actions";
-import { requireStaffUser } from "@/lib/auth/require-staff";
+import { requireRole } from "@/lib/auth/require-staff";
 import { isDemoMode } from "@/lib/config/env";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDaysInKorea, todayInKorea } from "@/lib/utils/format-date";
 import { hashMemberPin, isValidMemberPin, normalizePin } from "@/lib/utils/member-pin";
 import { phoneLast4 } from "@/lib/utils/mask-phone";
 
-function failMemberCreate(reason: string): never {
-  redirect(`/members/new?error=${encodeURIComponent(reason)}`);
-}
-
 function resolvePassMode(mode: string, startDate: string) {
   if (mode === "20_sessions") {
-    return { passName: "20회 등록권", totalSessions: 20, endDate: null as string | null };
+    return { passName: "20회 등록권", totalSessions: 20, endDate: null };
   }
   if (mode === "monthly") {
     return { passName: "한달 등록권", totalSessions: 999, endDate: addDaysInKorea(startDate, 30) };
   }
-  return { passName: "10회 등록권", totalSessions: 10, endDate: null as string | null };
+  return { passName: "10회 등록권", totalSessions: 10, endDate: null };
 }
 
 export async function createMember(formData: FormData) {
-  const staff = await requireStaffUser();
+  const staff = await requireRole(["owner", "admin", "front_desk"]);
   const name = String(formData.get("name") || "").trim();
   const phone = String(formData.get("phone") || "").trim();
   const last4 = phoneLast4(phone);
@@ -38,15 +33,19 @@ export async function createMember(formData: FormData) {
   const passMode = String(formData.get("pass_mode") || "10_sessions");
   const pass = resolvePassMode(passMode, startDate);
 
-  if (!name || last4.length !== 4) failMemberCreate("name_or_phone");
-  if (!isValidMemberPin(pin)) failMemberCreate("pin");
+  if (!name || last4.length !== 4) {
+    throw new Error("이름과 휴대폰 번호를 확인해 주세요.");
+  }
+  if (!isValidMemberPin(pin)) {
+    throw new Error("개인 PIN 번호는 숫자 4~8자리로 입력해 주세요.");
+  }
 
   if (isDemoMode()) {
     revalidatePath("/members");
     redirect("/members/demo-member-1");
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
   const { data: member, error: memberError } = await supabase
     .from("members")
     .insert({
@@ -63,14 +62,7 @@ export async function createMember(formData: FormData) {
     .select("id")
     .single();
 
-  if (memberError || !member) {
-    console.error("Failed to create member", {
-      organizationId: staff.organization_id,
-      code: memberError?.code,
-      message: memberError?.message
-    });
-    failMemberCreate(memberError?.code === "PGRST204" ? "schema" : "member");
-  }
+  if (memberError) throw new Error(memberError.message);
 
   const { data: memberPass, error: passError } = await supabase
     .from("member_passes")
@@ -90,35 +82,25 @@ export async function createMember(formData: FormData) {
     .select("id")
     .single();
 
-  if (passError || !memberPass) {
+  if (passError) {
     await supabase.from("members").delete().eq("id", member.id).eq("organization_id", staff.organization_id);
-    console.error("Failed to create member pass", {
-      organizationId: staff.organization_id,
-      memberId: member.id,
-      code: passError?.code,
-      message: passError?.message
-    });
-    failMemberCreate(passError?.code === "PGRST204" ? "schema" : "pass");
+    throw new Error(passError.message);
   }
 
-  try {
-    await createAuditLog({
-      organizationId: staff.organization_id,
-      actorId: staff.id,
-      action: "MEMBER_CREATED",
-      entityType: "members",
-      entityId: member.id,
-      afterData: {
-        name,
-        phone_last4: last4,
-        birth_date: birthDate,
-        pass_name: pass.passName,
-        member_pass_id: memberPass.id
-      }
-    });
-  } catch (error) {
-    console.error("Member was created, but audit log failed", { memberId: member.id, error });
-  }
+  await createAuditLog({
+    organizationId: staff.organization_id,
+    actorId: staff.id,
+    action: "MEMBER_CREATED",
+    entityType: "members",
+    entityId: member.id,
+    afterData: {
+      name,
+      phone_last4: last4,
+      birth_date: birthDate,
+      pass_name: pass.passName,
+      member_pass_id: memberPass.id
+    }
+  });
 
   revalidatePath("/members");
   revalidatePath("/dashboard");
@@ -126,7 +108,7 @@ export async function createMember(formData: FormData) {
 }
 
 export async function updateMember(memberId: string, formData: FormData) {
-  const staff = await requireStaffUser();
+  const staff = await requireRole(["owner", "admin", "front_desk"]);
   const supabase = await createSupabaseServerClient();
   const phone = String(formData.get("phone") || "").trim();
   const pin = normalizePin(String(formData.get("pin") || ""));
@@ -160,67 +142,6 @@ export async function updateMember(memberId: string, formData: FormData) {
     entityId: memberId,
     afterData: { ...patch, phone: undefined, pin_hash: undefined }
   });
-
-  revalidatePath(`/members/${memberId}`);
-}
-
-export async function createMemberNote(memberId: string, formData: FormData) {
-  const staff = await requireStaffUser();
-  const content = String(formData.get("content") || "").trim();
-  const noteType = String(formData.get("note_type") || "general");
-  const isPinned = formData.get("is_pinned") === "on";
-
-  if (content.length < 2) {
-    throw new Error("메모 내용을 입력해 주세요.");
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: member, error: memberError } = await supabase
-    .from("members")
-    .select("id, organization_id")
-    .eq("id", memberId)
-    .eq("organization_id", staff.organization_id)
-    .single();
-
-  if (memberError || !member) {
-    throw new Error("회원 정보를 찾을 수 없습니다.");
-  }
-
-  const { data: note, error } = await supabase
-    .from("member_notes")
-    .insert({
-      organization_id: staff.organization_id,
-      member_id: memberId,
-      note_type: noteType,
-      content,
-      is_pinned: isPinned,
-      created_by: staff.id
-    })
-    .select("id")
-    .single();
-
-  if (error || !note) {
-    console.error("Failed to create member note", {
-      organizationId: staff.organization_id,
-      memberId,
-      code: error?.code,
-      message: error?.message
-    });
-    throw new Error("메모를 저장하지 못했습니다.");
-  }
-
-  try {
-    await createAuditLog({
-      organizationId: staff.organization_id,
-      actorId: staff.id,
-      action: "MEMBER_NOTE_CREATED",
-      entityType: "member_notes",
-      entityId: note.id,
-      afterData: { member_id: memberId, note_type: noteType, is_pinned: isPinned }
-    });
-  } catch (auditError) {
-    console.error("Member note was created, but audit log failed", { noteId: note.id, auditError });
-  }
 
   revalidatePath(`/members/${memberId}`);
 }

@@ -7,7 +7,7 @@ const tsParser = nextRequire("@typescript-eslint/parser");
 
 export default [
   {
-    ignores: [".next/**", "_incoming_*/**", "node_modules/**", "out/**", "outputs/**", "uc_check_ready_*/**", "work/**"]
+    ignores: [".next/**", "_incoming_*/**", "node_modules/**", "out/**", "outputs/**", "work/**"]
   },
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
