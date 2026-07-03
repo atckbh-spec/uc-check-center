@@ -4,7 +4,6 @@ export type PassStatus = "active" | "paused" | "expired" | "used_up" | "cancelle
 export type ServiceType = "pt" | "conditioning" | "group" | "trial" | "other";
 export type AttendanceStatus = "checked_in" | "cancelled" | "no_show" | "manual_adjustment";
 export type AttendanceSource = "staff" | "kiosk" | "system";
-export type MemberNoteType = "general" | "renewal" | "schedule" | "payment" | "risk";
 
 export type StaffUser = {
   id: string;
@@ -61,18 +60,6 @@ export type AttendanceLog = {
   cancelled_by: string | null;
   cancelled_at: string | null;
   memo: string | null;
-};
-
-export type MemberNote = {
-  id: string;
-  organization_id: string;
-  member_id: string;
-  note_type: MemberNoteType;
-  content: string;
-  is_pinned: boolean;
-  created_by: string | null;
-  created_at: string;
-  staff_users?: Pick<StaffUser, "id" | "name" | "role"> | null;
 };
 
 export type CheckInResult = {
