@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, RotateCcw, TrendingUp, UserCog } from "lucide-react";
 import { cancelAttendanceFromForm, manualAttendanceFromForm } from "@/lib/attendance/actions";
 import { requireStaffUser } from "@/lib/auth/require-staff";
+import { updateMember } from "@/lib/members/actions";
 import { getMemberDetail } from "@/lib/members/queries";
 import { createMemberPass } from "@/lib/passes/actions";
 import { assignMemberCoach } from "@/lib/staff/actions";
@@ -249,6 +250,57 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         </div>
 
         <div className="space-y-5">
+          <Card className="p-5">
+            <h2 className="mb-4 font-semibold">회원 정보 수정</h2>
+            <form action={updateMember.bind(null, member.id)} className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold">회원명</span>
+                <Input name="name" defaultValue={member.name} required />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold">휴대폰 번호</span>
+                <Input name="phone" inputMode="tel" defaultValue={member.phone} required />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-semibold">생년월일</span>
+                  <Input name="birth_date" type="date" defaultValue={member.birth_date ?? ""} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-semibold">회원 상태</span>
+                  <select name="status" defaultValue={member.status} className="focus-ring h-11 w-full rounded-md border border-line bg-white px-3 text-base text-ink">
+                    <option value="active">활성</option>
+                    <option value="paused">일시정지</option>
+                    <option value="inactive">비활성</option>
+                    <option value="archived">보관</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold">개인 PIN 재설정</span>
+                <Input name="pin" inputMode="numeric" maxLength={8} placeholder="변경할 때만 입력" />
+                <p className="mt-1 text-xs text-muted">비워두면 기존 PIN을 유지합니다. 전화번호를 바꾸면 새 휴대폰 뒷자리로 자동 재설정됩니다.</p>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold">관리 메모</span>
+                <textarea
+                  name="memo"
+                  defaultValue={member.memo ?? ""}
+                  className="focus-ring min-h-28 w-full rounded-md border border-line bg-white p-3 text-sm"
+                  placeholder="직원에게만 보이는 메모"
+                />
+              </label>
+
+              <Button type="submit" className="w-full">
+                회원 정보 저장
+              </Button>
+            </form>
+          </Card>
+
           <Card className="p-5">
             <h2 className="mb-4 font-semibold">담당 직원 설정</h2>
             <form action={assignMemberCoach.bind(null, member.id)} className="space-y-3">

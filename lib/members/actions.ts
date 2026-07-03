@@ -6,7 +6,6 @@ import { createAuditLog } from "@/lib/audit/actions";
 import { requireStaffUser } from "@/lib/auth/require-staff";
 import { isDemoMode } from "@/lib/config/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { addDaysInKorea, todayInKorea } from "@/lib/utils/format-date";
 import { hashMemberPin, isValidMemberPin, normalizePin } from "@/lib/utils/member-pin";
 import { phoneLast4 } from "@/lib/utils/mask-phone";
@@ -127,21 +126,53 @@ export async function createMember(formData: FormData) {
 
 export async function updateMember(memberId: string, formData: FormData) {
   const staff = await requireStaffUser();
-  const supabase = await createSupabaseServerClient();
+  const name = String(formData.get("name") || "").trim();
   const phone = String(formData.get("phone") || "").trim();
+  const last4 = phoneLast4(phone);
   const pin = normalizePin(String(formData.get("pin") || ""));
+  const status = String(formData.get("status") || "active");
+
+  if (!name || last4.length !== 4) {
+    throw new Error("회원명과 휴대폰 번호를 확인해 주세요.");
+  }
+
+  if (!["active", "inactive", "paused", "archived"].includes(status)) {
+    throw new Error("회원 상태를 확인해 주세요.");
+  }
+
+  if (isDemoMode()) {
+    revalidatePath(`/members/${memberId}`);
+    revalidatePath("/members");
+    return;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: before, error: beforeError } = await supabase
+    .from("members")
+    .select("id, name, phone, phone_last4, birth_date, status, memo")
+    .eq("id", memberId)
+    .eq("organization_id", staff.organization_id)
+    .single();
+
+  if (beforeError || !before) {
+    throw new Error("현재 조직 소속 회원을 찾을 수 없습니다.");
+  }
+
   const patch: Record<string, unknown> = {
-    name: String(formData.get("name") || "").trim(),
+    name,
     phone,
-    phone_last4: phoneLast4(phone),
-    status: String(formData.get("status") || "active"),
+    phone_last4: last4,
+    status,
     birth_date: String(formData.get("birth_date") || "") || null,
-    memo: String(formData.get("memo") || "").trim() || null
+    memo: String(formData.get("memo") || "").trim() || null,
+    updated_at: new Date().toISOString()
   };
 
   if (pin) {
     if (!isValidMemberPin(pin)) throw new Error("개인 PIN 번호는 숫자 4~8자리로 입력해 주세요.");
     patch.pin_hash = hashMemberPin(staff.organization_id, phone, pin);
+  } else if (before.phone !== phone) {
+    patch.pin_hash = hashMemberPin(staff.organization_id, phone, last4);
   }
 
   const { error } = await supabase
@@ -158,10 +189,13 @@ export async function updateMember(memberId: string, formData: FormData) {
     action: "MEMBER_UPDATED",
     entityType: "members",
     entityId: memberId,
+    beforeData: before,
     afterData: { ...patch, phone: undefined, pin_hash: undefined }
   });
 
   revalidatePath(`/members/${memberId}`);
+  revalidatePath("/members");
+  revalidatePath("/dashboard");
 }
 
 export async function createMemberNote(memberId: string, formData: FormData) {
