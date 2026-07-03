@@ -2,7 +2,6 @@ import Link from "next/link";
 import { CheckCircle2, RotateCcw } from "lucide-react";
 import { cancelAttendanceFromForm, manualAttendanceFromForm } from "@/lib/attendance/actions";
 import { MemberStatusBadge } from "@/components/members/MemberStatusBadge";
-import { maskPhone } from "@/lib/utils/mask-phone";
 import { getMemberStatusTags } from "@/lib/utils/status-tags";
 import { todayInKorea } from "@/lib/utils/format-date";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +41,7 @@ export function MemberTable({ members }: { members: any[] }) {
                     {member.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3">{maskPhone(member.phone)}</td>
+                <td className="px-4 py-3 font-semibold text-ink">{member.phone ?? "-"}</td>
                 <td className="px-4 py-3">{activePass?.pass_name ?? "-"}</td>
                 <td className="px-4 py-3">{activePass ? `${activePass.remaining_sessions}회` : "-"}</td>
                 <td className="px-4 py-3">

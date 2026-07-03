@@ -6,7 +6,6 @@ import { createMemberPass } from "@/lib/passes/actions";
 import { assignMemberCoach } from "@/lib/staff/actions";
 import { getAssignableStaff, getStaffUsers } from "@/lib/staff/queries";
 import { addDaysInKorea, daysSince, formatKoreanDateTime, todayInKorea } from "@/lib/utils/format-date";
-import { maskPhone } from "@/lib/utils/mask-phone";
 import { getRetentionRiskLabel, getRetentionRiskReasons, getRetentionRiskScore } from "@/lib/utils/retention-score";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -86,7 +85,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     <StaffOnlyLayout>
       <PageHeader
         title={member.name}
-        description={`${maskPhone(member.phone)} · ${memberStatusLabel[member.status] ?? member.status}`}
+        description={`${member.phone} · ${memberStatusLabel[member.status] ?? member.status}`}
         actions={
           <div className="grid gap-2">
             <form action={manualAttendanceFromForm} className="flex flex-wrap items-center justify-end gap-2">
