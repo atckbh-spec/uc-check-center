@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { isDemoMode } from "@/lib/config/env";
+import { getStaffPinSessionId } from "@/lib/auth/pin-session";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { StaffRole, StaffUser } from "@/lib/types";
 
@@ -17,6 +19,20 @@ function demoStaff(): StaffUser {
 
 export async function getCurrentStaffUser(): Promise<StaffUser | null> {
   if (isDemoMode()) return demoStaff();
+
+  const staffPinSessionId = await getStaffPinSessionId();
+  if (staffPinSessionId) {
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("staff_users")
+      .select("*")
+      .eq("id", staffPinSessionId)
+      .eq("is_active", true)
+      .in("role", ["owner", "admin"])
+      .single();
+
+    if (!error && data) return data as StaffUser;
+  }
 
   const supabase = await createSupabaseServerClient();
   const {

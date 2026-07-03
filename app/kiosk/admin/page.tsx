@@ -21,11 +21,13 @@ export default function KioskAdminPage({ searchParams }: { searchParams: { error
             <ShieldCheck className="size-8" />
           </div>
           <h1 className="mt-6 text-3xl font-bold text-ink">관리자 PIN</h1>
-          <p className="mt-3 text-base text-muted">직원용 PIN을 입력하면 관리자 대시보드로 이동합니다.</p>
+          <p className="mt-3 text-base text-muted">PIN을 입력하면 관리자 대시보드로 이동합니다.</p>
           <form action={enterAdminDashboard} className="mt-7 space-y-4">
             <Input name="pin" inputMode="numeric" type="password" placeholder="PIN" className="h-14 text-center text-2xl font-bold" required />
-            {searchParams.error === "1" ? <p className="rounded-md bg-[#fff1e8] p-3 text-sm font-semibold text-action">PIN이 올바르지 않습니다.</p> : null}
-            <Button type="submit" className="h-14 w-full text-lg font-bold">관리자 대시보드 열기</Button>
+            {searchParams.error === "1" ? <p className="rounded-md bg-[#fff1e8] p-3 text-sm font-semibold text-action">PIN 번호가 올바르지 않습니다.</p> : null}
+            <Button type="submit" className="h-14 w-full text-lg font-bold">
+              관리자 대시보드 열기
+            </Button>
           </form>
         </Card>
       </section>

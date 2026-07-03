@@ -1,9 +1,14 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { getStaffPinSessionId } from "@/lib/auth/pin-session";
 import { assertSupabaseEnv } from "@/lib/config/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function createSupabaseServerClient() {
   assertSupabaseEnv();
+  const staffPinSessionId = await getStaffPinSessionId();
+  if (staffPinSessionId) return createSupabaseAdminClient();
+
   const cookieStore = await cookies();
 
   return createServerClient(

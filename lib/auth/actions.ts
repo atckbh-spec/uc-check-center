@@ -1,23 +1,21 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAdminPinSession } from "@/lib/auth/admin-pin";
+import { clearStaffPinSession } from "@/lib/auth/pin-session";
 
 export async function signInStaff(formData: FormData) {
-  const email = String(formData.get("email") || "");
-  const password = String(formData.get("password") || "");
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const pin = String(formData.get("pin") || "").trim();
+  const result = await createAdminPinSession(pin);
 
-  if (error) {
-    redirect("/login?error=1");
+  if (!result.ok) {
+    redirect(`/login?error=${result.reason}`);
   }
 
   redirect("/dashboard");
 }
 
 export async function signOutStaff() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  await clearStaffPinSession();
   redirect("/login");
 }

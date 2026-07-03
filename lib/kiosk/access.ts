@@ -3,6 +3,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createAdminPinSession } from "@/lib/auth/admin-pin";
 
 const COOKIE_NAME = "uc_kiosk_access";
 const MAX_AGE_SECONDS = 60 * 60 * 12;
@@ -70,7 +71,8 @@ export async function unlockKiosk(formData: FormData) {
 
 export async function enterAdminDashboard(formData: FormData) {
   const pin = String(formData.get("pin") || "").trim();
-  if (pin !== getKioskUnlockPin()) redirect("/kiosk/admin?error=1");
+  const result = await createAdminPinSession(pin);
+  if (!result.ok) redirect("/kiosk/admin?error=1");
   redirect("/dashboard");
 }
 
