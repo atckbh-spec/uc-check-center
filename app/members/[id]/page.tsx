@@ -1,5 +1,5 @@
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, RotateCcw, TrendingUp, UserCog } from "lucide-react";
-import { cancelAttendanceFromForm, checkInMemberFromForm } from "@/lib/attendance/actions";
+import { cancelAttendanceFromForm, manualAttendanceFromForm } from "@/lib/attendance/actions";
 import { requireStaffUser } from "@/lib/auth/require-staff";
 import { getMemberDetail } from "@/lib/members/queries";
 import { createMemberPass } from "@/lib/passes/actions";
@@ -88,22 +88,23 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         title={member.name}
         description={`${maskPhone(member.phone)} · ${memberStatusLabel[member.status] ?? member.status}`}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <form action={checkInMemberFromForm}>
+          <div className="grid gap-2">
+            <form action={manualAttendanceFromForm} className="flex flex-wrap items-center justify-end gap-2">
               <input type="hidden" name="member_id" value={member.id} />
               <input type="hidden" name="member_pass_id" value={primaryPass?.id ?? ""} />
-              <Button type="submit" className="h-12 px-6 text-base font-bold" disabled={!primaryPass || primaryPass.remaining_sessions <= 0 || Boolean(todayCheckedInLog)}>
+              <input name="attendance_date" type="date" defaultValue={today} className="focus-ring h-12 rounded-md border border-line bg-white px-3 text-base" />
+              <Button type="submit" className="h-12 px-6 text-base font-bold" disabled={!primaryPass || primaryPass.remaining_sessions <= 0}>
                 <CheckCircle2 className="size-5" />
-                수기 출석 처리
+                추가 출석 처리
               </Button>
             </form>
-            <form action={cancelAttendanceFromForm}>
+            <form action={cancelAttendanceFromForm} className="flex justify-end">
               <input type="hidden" name="attendance_id" value={todayCheckedInLog?.id ?? ""} />
               <input type="hidden" name="member_id" value={member.id} />
               <input type="hidden" name="reason" value="수기 출석 취소" />
-              <Button type="submit" variant="secondary" className="h-12 px-6 text-base font-bold" disabled={!todayCheckedInLog}>
+              <Button type="submit" variant="secondary" className="h-11 px-5 text-base font-bold" disabled={!todayCheckedInLog}>
                 <RotateCcw className="size-5" />
-                출석 취소
+                오늘 출석 취소
               </Button>
             </form>
           </div>
@@ -186,20 +187,21 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                           사용 {pass.used_sessions}회 · 잔여 {pass.remaining_sessions}회 · 전체 {pass.total_sessions}회
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <form action={checkInMemberFromForm}>
+                      <div className="grid gap-2">
+                        <form action={manualAttendanceFromForm} className="flex flex-wrap gap-2">
                           <input type="hidden" name="member_id" value={member.id} />
                           <input type="hidden" name="member_pass_id" value={pass.id} />
-                          <Button type="submit" className="h-12 min-w-36 text-base font-bold" disabled={pass.remaining_sessions <= 0 || Boolean(todayCheckedInLog)}>
-                            수기 출석 처리
+                          <input name="attendance_date" type="date" defaultValue={today} className="focus-ring h-12 rounded-md border border-line bg-white px-3 text-base" />
+                          <Button type="submit" className="h-12 min-w-36 text-base font-bold" disabled={pass.remaining_sessions <= 0}>
+                            추가 출석 처리
                           </Button>
                         </form>
-                        <form action={cancelAttendanceFromForm}>
+                        <form action={cancelAttendanceFromForm} className="flex justify-end">
                           <input type="hidden" name="attendance_id" value={passCheckedInLog?.id ?? ""} />
                           <input type="hidden" name="member_id" value={member.id} />
                           <input type="hidden" name="reason" value="수기 출석 취소" />
-                          <Button type="submit" variant="secondary" className="h-12 min-w-28 text-base font-bold" disabled={!passCheckedInLog}>
-                            출석 취소
+                          <Button type="submit" variant="secondary" className="h-11 min-w-28 text-base font-bold" disabled={!passCheckedInLog}>
+                            오늘 출석 취소
                           </Button>
                         </form>
                       </div>
@@ -224,11 +226,22 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
             <h2 className="mb-4 font-semibold">출석 히스토리</h2>
             <div className="divide-y divide-line">
               {attendanceLogs.map((log) => (
-                <div key={log.id} className="flex justify-between gap-4 py-3 text-sm">
-                  <span>{formatKoreanDateTime(log.checkin_at)}</span>
-                  <span className="text-muted">
-                    {log.source === "kiosk" ? "키오스크" : "직원"} · {statusLabel[log.status] ?? log.status}
-                  </span>
+                <div key={log.id} className="flex flex-col gap-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div>{formatKoreanDateTime(log.checkin_at)}</div>
+                    <div className="mt-1 text-muted">
+                      {log.source === "kiosk" ? "키오스크" : "직원"} · {statusLabel[log.status] ?? log.status}
+                    </div>
+                  </div>
+                  <form action={cancelAttendanceFromForm}>
+                    <input type="hidden" name="attendance_id" value={log.status === "checked_in" ? log.id : ""} />
+                    <input type="hidden" name="member_id" value={member.id} />
+                    <input type="hidden" name="reason" value="출석 히스토리에서 취소" />
+                    <Button type="submit" variant="secondary" className="h-10 px-3" disabled={log.status !== "checked_in"}>
+                      <RotateCcw className="size-4" />
+                      취소
+                    </Button>
+                  </form>
                 </div>
               ))}
               {attendanceLogs.length === 0 ? <div className="py-3 text-sm text-muted">출석 기록이 없습니다.</div> : null}
@@ -267,7 +280,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 <option value="trial">체험</option>
                 <option value="other">기타</option>
               </select>
-              <Input name="start_date" type="date" defaultValue={todayInKorea()} />
+              <Input name="start_date" type="date" defaultValue={today} />
               <Button type="submit" className="w-full">
                 회원권 추가
               </Button>

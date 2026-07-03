@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2, RotateCcw } from "lucide-react";
-import { cancelAttendanceFromForm, checkInMemberFromForm } from "@/lib/attendance/actions";
+import { cancelAttendanceFromForm, manualAttendanceFromForm } from "@/lib/attendance/actions";
 import { MemberStatusBadge } from "@/components/members/MemberStatusBadge";
 import { maskPhone } from "@/lib/utils/mask-phone";
 import { getMemberStatusTags } from "@/lib/utils/status-tags";
@@ -13,7 +13,7 @@ export function MemberTable({ members }: { members: any[] }) {
 
   return (
     <div className="overflow-x-auto rounded-md border border-line bg-white">
-      <table className="w-full min-w-[1040px] text-left text-sm">
+      <table className="w-full min-w-[1160px] text-left text-sm">
         <thead className="bg-surface text-muted">
           <tr>
             <th className="px-4 py-3">회원명</th>
@@ -62,22 +62,23 @@ export function MemberTable({ members }: { members: any[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <form action={checkInMemberFromForm}>
+                  <div className="grid min-w-[330px] gap-2">
+                    <form action={manualAttendanceFromForm} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="member_id" value={member.id} />
                       <input type="hidden" name="member_pass_id" value={activePass?.id ?? ""} />
-                      <Button type="submit" className="h-10 px-3" disabled={!activePass || checkedInToday}>
+                      <input name="attendance_date" type="date" defaultValue={today} className="focus-ring h-10 rounded-md border border-line bg-white px-3 text-sm" />
+                      <Button type="submit" className="h-10 px-3" disabled={!activePass}>
                         <CheckCircle2 className="size-4" />
-                        수기 출석 처리
+                        추가 출석 처리
                       </Button>
                     </form>
-                    <form action={cancelAttendanceFromForm}>
+                    <form action={cancelAttendanceFromForm} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="attendance_id" value={checkedInLog?.id ?? ""} />
                       <input type="hidden" name="member_id" value={member.id} />
                       <input type="hidden" name="reason" value="수기 출석 취소" />
                       <Button type="submit" variant="secondary" className="h-10 px-3" disabled={!checkedInLog}>
                         <RotateCcw className="size-4" />
-                        출석 취소
+                        오늘 출석 취소
                       </Button>
                     </form>
                   </div>

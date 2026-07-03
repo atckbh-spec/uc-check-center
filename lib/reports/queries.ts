@@ -151,10 +151,10 @@ export async function getMonthlySummary(organizationId: string, year: number, mo
       member_id: `demo-member-${index % 7}`,
       status: index === 5 ? "cancelled" : index === 11 ? "no_show" : "checked_in",
       member_passes:
-        index % 4 === 0
-          ? { pass_name: "한달 등록권", total_sessions: 999, end_date: `${year}-${String(month).padStart(2, "0")}-28` }
-          : index % 3 === 0
-            ? { pass_name: "PT 20회권", total_sessions: 20, end_date: null }
+        index % 5 === 0
+          ? { pass_name: "OT", total_sessions: 1, end_date: null }
+          : index % 4 === 0
+            ? { pass_name: "한달 등록권", total_sessions: 999, end_date: `${year}-${String(month).padStart(2, "0")}-28` }
             : { pass_name: "10회 등록권", total_sessions: 10, end_date: null }
     }));
   }
