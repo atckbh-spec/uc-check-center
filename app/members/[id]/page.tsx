@@ -1,7 +1,7 @@
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, RotateCcw, TrendingUp, UserCog } from "lucide-react";
 import { cancelAttendanceFromForm, manualAttendanceFromForm } from "@/lib/attendance/actions";
 import { requireStaffUser } from "@/lib/auth/require-staff";
-import { updateMember } from "@/lib/members/actions";
+import { archiveMember, updateMember } from "@/lib/members/actions";
 import { getMemberDetail } from "@/lib/members/queries";
 import { createMemberPass } from "@/lib/passes/actions";
 import { assignMemberCoach } from "@/lib/staff/actions";
@@ -297,6 +297,22 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
               <Button type="submit" className="w-full">
                 회원 정보 저장
+              </Button>
+            </form>
+          </Card>
+
+          <Card className="border-action/30 bg-[#fff8f5] p-5">
+            <h2 className="mb-2 font-semibold text-action">회원 삭제</h2>
+            <p className="text-sm text-muted">
+              삭제하면 회원관리 목록에서 보이지 않습니다. 과거 출석 기록과 리포트 데이터는 보존됩니다.
+            </p>
+            <form action={archiveMember.bind(null, member.id)} className="mt-4 space-y-3">
+              <label className="flex items-start gap-2 text-sm font-semibold text-ink">
+                <input type="checkbox" required className="mt-1 size-4" />
+                이 회원을 삭제 처리하는 것을 확인했습니다.
+              </label>
+              <Button type="submit" variant="danger" className="w-full">
+                회원 삭제
               </Button>
             </form>
           </Card>

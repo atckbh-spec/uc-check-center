@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { KioskMessageCard } from "@/components/kiosk/KioskNotice";
 import { KioskShell } from "@/components/kiosk/KioskShell";
 import { requireKioskAccess } from "@/lib/kiosk/access";
@@ -17,18 +16,22 @@ function getParam(value: string | string[] | undefined) {
 
 export const dynamic = "force-dynamic";
 
-export default async function KioskConfirmPage({ searchParams }: { searchParams: { memberId?: string | string[]; passId?: string | string[] } }) {
+export default async function KioskConfirmPage({
+  searchParams
+}: {
+  searchParams: { memberId?: string | string[]; passId?: string | string[]; token?: string | string[] };
+}) {
   await requireKioskAccess();
   const memberId = getParam(searchParams.memberId);
   const passId = getParam(searchParams.passId);
-  if (!memberId || !passId) redirect("/kiosk");
+  const token = getParam(searchParams.token);
+  if (!memberId || !passId || !token) redirect("/kiosk");
 
   const preview = await getKioskMemberPreview(memberId, passId);
 
-  async function confirm(formData: FormData) {
+  async function confirm() {
     "use server";
-    const pin = String(formData.get("pin") || "");
-    const result = await checkInMemberFromKiosk(memberId, passId, pin);
+    const result = await checkInMemberFromKiosk(memberId, passId, token);
     const params = new URLSearchParams({
       ok: String(result.success),
       name: result.memberMaskedName ?? preview.maskedName,
@@ -60,8 +63,8 @@ export default async function KioskConfirmPage({ searchParams }: { searchParams:
               <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-white/15">
                 <CheckCircle2 className="size-9" />
               </div>
-              <h1 className="mt-5 text-3xl font-black sm:text-5xl">{preview.maskedName}님이 맞으신가요?</h1>
-              <p className="mt-3 text-base font-semibold text-white/75">출석 체크 전 회원권 정보를 확인해 주세요.</p>
+              <h1 className="mt-5 text-3xl font-black sm:text-5xl">{preview.maskedName}님이 맞나요?</h1>
+              <p className="mt-3 text-base font-semibold text-white/75">회원권과 현재 잔여횟수를 확인한 뒤 출석 체크를 눌러 주세요.</p>
             </div>
 
             <div className="grid gap-4 p-5 sm:p-8">
@@ -84,32 +87,17 @@ export default async function KioskConfirmPage({ searchParams }: { searchParams:
                 </div>
               </div>
 
-              <form action={confirm} className="grid gap-3">
-                <label className="block text-left">
-                  <span className="mb-2 block text-base font-black text-ink">개인 PIN 번호</span>
-                  <Input
-                    name="pin"
-                    inputMode="numeric"
-                    type="password"
-                    placeholder="휴대폰 뒷자리 또는 등록 PIN"
-                    className="h-16 text-center text-2xl font-black"
-                    minLength={4}
-                    maxLength={8}
-                    required
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
-                  <Link
-                    className="focus-ring inline-flex h-16 items-center justify-center gap-2 rounded-md border border-line bg-white text-lg font-black text-ink hover:bg-surface"
-                    href="/kiosk"
-                  >
-                    <ArrowLeft className="size-5" />
-                    뒤로
-                  </Link>
-                  <Button type="submit" className="h-16 text-xl font-black shadow-subtle">
-                    PIN 확인 후 출석 체크
-                  </Button>
-                </div>
+              <form action={confirm} className="grid gap-3 sm:grid-cols-[1fr_2fr]">
+                <Link
+                  className="focus-ring inline-flex h-16 items-center justify-center gap-2 rounded-md border border-line bg-white text-lg font-black text-ink hover:bg-surface"
+                  href="/kiosk"
+                >
+                  <ArrowLeft className="size-5" />
+                  뒤로
+                </Link>
+                <Button type="submit" className="h-16 text-xl font-black shadow-subtle">
+                  출석 체크
+                </Button>
               </form>
             </div>
           </Card>

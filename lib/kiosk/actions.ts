@@ -1,47 +1,17 @@
 "use server";
 
 import { isDemoMode } from "@/lib/config/env";
+import { verifyKioskCheckInToken } from "@/lib/kiosk/check-in-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { CheckInResult } from "@/lib/types";
 import { todayInKorea } from "@/lib/utils/format-date";
-import { digitsOnly, hashMemberPin, normalizePin } from "@/lib/utils/member-pin";
 
-async function validateKioskMemberPin(memberId: string, pin: string) {
-  const normalizedPin = normalizePin(pin);
-  if (!/^\d{4,8}$/.test(normalizedPin)) return false;
-
-  if (isDemoMode()) {
-    const demoLast4ByMember: Record<string, string> = {
-      "demo-member-1": "5678",
-      "demo-member-2": "1234",
-      "demo-member-3": "7777"
-    };
-    return normalizedPin === demoLast4ByMember[memberId];
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("members")
-    .select("organization_id, phone, phone_last4, pin_hash")
-    .eq("id", memberId)
-    .eq("status", "active")
-    .single();
-
-  if (error || !data) return false;
-
-  if (!data.pin_hash) {
-    return normalizedPin === data.phone_last4 || normalizedPin === digitsOnly(data.phone).slice(-4);
-  }
-
-  return hashMemberPin(data.organization_id, data.phone, normalizedPin) === data.pin_hash;
-}
-
-export async function checkInMemberFromKiosk(memberId: string, memberPassId: string, pin: string): Promise<CheckInResult> {
-  const pinOk = await validateKioskMemberPin(memberId, pin);
-  if (!pinOk) {
+export async function checkInMemberFromKiosk(memberId: string, memberPassId: string, token: string): Promise<CheckInResult> {
+  const tokenOk = verifyKioskCheckInToken(token, memberId, memberPassId);
+  if (!tokenOk) {
     return {
       success: false,
-      message: "개인 PIN 번호가 일치하지 않습니다. 다시 입력하거나 스태프에게 문의해 주세요."
+      message: "확인 시간이 만료되었습니다. 처음 화면에서 다시 입력해 주세요."
     };
   }
 
@@ -65,6 +35,17 @@ export async function checkInMemberFromKiosk(memberId: string, memberPassId: str
     p_source: "kiosk"
   });
 
-  if (error) return { success: false, message: error.message };
+  if (error) {
+    console.error("Kiosk check-in failed", {
+      memberId,
+      memberPassId,
+      code: error.code,
+      message: error.message
+    });
+    return {
+      success: false,
+      message: "출석 처리에 실패했습니다. 이미 오늘 출석했거나 회원권 상태를 확인해 주세요."
+    };
+  }
   return data as CheckInResult;
 }

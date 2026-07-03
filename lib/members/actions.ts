@@ -198,6 +198,49 @@ export async function updateMember(memberId: string, formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+export async function archiveMember(memberId: string) {
+  const staff = await requireStaffUser();
+
+  if (isDemoMode()) {
+    revalidatePath("/members");
+    redirect("/members");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data: before, error: beforeError } = await supabase
+    .from("members")
+    .select("id, name, phone_last4, birth_date, status, memo")
+    .eq("id", memberId)
+    .eq("organization_id", staff.organization_id)
+    .single();
+
+  if (beforeError || !before) {
+    throw new Error("현재 조직 소속 회원을 찾을 수 없습니다.");
+  }
+
+  const { error } = await supabase
+    .from("members")
+    .update({ status: "archived", updated_at: new Date().toISOString() })
+    .eq("id", memberId)
+    .eq("organization_id", staff.organization_id);
+
+  if (error) throw new Error(error.message);
+
+  await createAuditLog({
+    organizationId: staff.organization_id,
+    actorId: staff.id,
+    action: "MEMBER_ARCHIVED",
+    entityType: "members",
+    entityId: memberId,
+    beforeData: before,
+    afterData: { status: "archived" }
+  });
+
+  revalidatePath("/members");
+  revalidatePath("/dashboard");
+  redirect("/members");
+}
+
 export async function createMemberNote(memberId: string, formData: FormData) {
   const staff = await requireStaffUser();
   const content = String(formData.get("content") || "").trim();

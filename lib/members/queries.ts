@@ -104,8 +104,8 @@ const demoMembers = [
 
 export async function searchMembers(query = "", organizationId: string) {
   if (shouldUseDemoData()) {
-    if (!query) return demoMembers;
-    return demoMembers.filter((member) => member.name.includes(query) || member.phone_last4 === query.slice(-4));
+    const rows = !query ? demoMembers : demoMembers.filter((member) => member.name.includes(query) || member.phone_last4 === query.slice(-4));
+    return [...rows].sort((a, b) => a.name.localeCompare(b.name, "ko-KR"));
   }
 
   const supabase = await createSupabaseServerClient();
@@ -116,7 +116,7 @@ export async function searchMembers(query = "", organizationId: string) {
     .eq("organization_id", organizationId)
     .neq("status", "archived")
     .eq("attendance_logs.attendance_date", today)
-    .order("created_at", { ascending: false });
+    .order("name", { ascending: true });
 
   if (query) {
     request = request.or(`name.ilike.%${query}%,phone_last4.eq.${query.slice(-4)}`);

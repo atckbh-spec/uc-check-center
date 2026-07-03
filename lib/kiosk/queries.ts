@@ -1,4 +1,5 @@
 import { isDemoMode } from "@/lib/config/env";
+import { createKioskCheckInToken } from "@/lib/kiosk/check-in-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { todayInKorea } from "@/lib/utils/format-date";
 import { maskKoreanName, maskPhone } from "@/lib/utils/mask-phone";
@@ -16,6 +17,7 @@ export type KioskCandidate = {
   maskedName: string;
   maskedPhone: string;
   activePass: KioskPassPreview | null;
+  checkInToken?: string;
 };
 
 export type KioskSearchResult = {
@@ -83,12 +85,16 @@ export async function getKioskSearchResultByLast4(phoneLast4: string): Promise<K
     return {
       last4,
       isValid: true,
-      candidates: rows.slice(0, 5).map((member) => ({
-        id: member.id,
-        maskedName: maskKoreanName(member.name),
-        maskedPhone: maskPhone(member.phone),
-        activePass: pickActivePass([member.activePass])
-      })),
+      candidates: rows.slice(0, 5).map((member) => {
+        const activePass = pickActivePass([member.activePass]);
+        return {
+          id: member.id,
+          maskedName: maskKoreanName(member.name),
+          maskedPhone: maskPhone(member.phone),
+          activePass,
+          checkInToken: activePass ? createKioskCheckInToken(member.id, activePass.id) : undefined
+        };
+      }),
       tooMany: rows.length > 5,
       message: rows.length > 5 ? "같은 번호의 후보가 많습니다. 정확한 확인을 위해 스태프에게 문의해 주세요." : undefined
     };
@@ -100,19 +106,23 @@ export async function getKioskSearchResultByLast4(phoneLast4: string): Promise<K
     .select("id, name, phone, member_passes(id, pass_name, remaining_sessions, status, end_date)")
     .eq("phone_last4", last4)
     .eq("status", "active")
-    .order("updated_at", { ascending: false })
+    .order("name", { ascending: true })
     .limit(6);
 
   if (error) throw new Error(error.message);
 
   const rows = data ?? [];
   const tooMany = rows.length > 5;
-  const candidates = rows.slice(0, 5).map((member) => ({
-    id: member.id,
-    maskedName: maskKoreanName(member.name),
-    maskedPhone: maskPhone(member.phone),
-    activePass: pickActivePass((member.member_passes ?? []) as KioskPassPreview[])
-  }));
+  const candidates = rows.slice(0, 5).map((member) => {
+    const activePass = pickActivePass((member.member_passes ?? []) as KioskPassPreview[]);
+    return {
+      id: member.id,
+      maskedName: maskKoreanName(member.name),
+      maskedPhone: maskPhone(member.phone),
+      activePass,
+      checkInToken: activePass ? createKioskCheckInToken(member.id, activePass.id) : undefined
+    };
+  });
 
   return {
     last4,

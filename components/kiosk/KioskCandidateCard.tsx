@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import type { KioskCandidate } from "@/lib/kiosk/queries";
 
 export function KioskCandidateCard({ candidate }: { candidate: KioskCandidate }) {
-  const canCheckIn = Boolean(candidate.activePass);
+  const canCheckIn = Boolean(candidate.activePass && candidate.checkInToken);
 
   return (
     <Card className="p-5 sm:p-6">
@@ -36,7 +36,7 @@ export function KioskCandidateCard({ candidate }: { candidate: KioskCandidate })
         {candidate.activePass ? (
           <Link
             className="inline-flex min-h-16 min-w-40 items-center justify-center gap-2 rounded-md bg-brand px-6 text-lg font-black text-white"
-            href={`/kiosk/confirm?memberId=${candidate.id}&passId=${candidate.activePass.id}`}
+            href={`/kiosk/confirm?memberId=${candidate.id}&passId=${candidate.activePass.id}&token=${encodeURIComponent(candidate.checkInToken ?? "")}`}
           >
             <CheckCircle2 className="size-6" />
             본인 선택
