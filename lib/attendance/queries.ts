@@ -13,8 +13,7 @@ export async function getTodayAttendance(organizationId: string) {
         deducted_sessions: 1,
         status: "checked_in",
         members: { name: "김민수", phone: "01012345678" },
-        member_passes: { pass_name: "PT 20회권", remaining_sessions: 8 },
-        staff_users: null
+        member_passes: { pass_name: "PT 20회권", remaining_sessions: 8 }
       },
       {
         id: "demo-today-2",
@@ -24,8 +23,7 @@ export async function getTodayAttendance(organizationId: string) {
         deducted_sessions: 1,
         status: "checked_in",
         members: { name: "박서연", phone: "01098761234" },
-        member_passes: { pass_name: "컨디셔닝 10회권", remaining_sessions: 3 },
-        staff_users: { name: "관리자" }
+        member_passes: { pass_name: "컨디셔닝 10회권", remaining_sessions: 3 }
       },
       {
         id: "demo-today-3",
@@ -35,8 +33,7 @@ export async function getTodayAttendance(organizationId: string) {
         deducted_sessions: 0,
         status: "cancelled",
         members: { name: "이정훈", phone: "01055557777" },
-        member_passes: { pass_name: "그룹 8회권", remaining_sessions: 1 },
-        staff_users: { name: "관리자" }
+        member_passes: { pass_name: "그룹 8회권", remaining_sessions: 1 }
       }
     ];
   }
@@ -44,12 +41,20 @@ export async function getTodayAttendance(organizationId: string) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("attendance_logs")
-    .select("*, members(name, phone), member_passes(pass_name, remaining_sessions), staff_users(name)")
+    .select("*, members(name, phone), member_passes(pass_name, remaining_sessions)")
     .eq("organization_id", organizationId)
     .eq("attendance_date", todayInKorea())
     .order("checkin_at", { ascending: false });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Failed to load today's attendance", {
+      organizationId,
+      code: error.code,
+      message: error.message
+    });
+    return [];
+  }
+
   return data ?? [];
 }
 

@@ -68,7 +68,7 @@ export default async function TodayAttendancePage() {
               <th className="px-4 py-3">출처</th>
               <th className="px-4 py-3">차감</th>
               <th className="px-4 py-3">상태</th>
-              <th className="px-4 py-3">처리자</th>
+              <th className="px-4 py-3">처리</th>
               {canCancel ? <th className="px-4 py-3">관리</th> : null}
             </tr>
           </thead>
@@ -94,7 +94,7 @@ export default async function TodayAttendancePage() {
                       {statusLabel[log.status] ?? log.status}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">{log.staff_users?.name ?? "키오스크"}</td>
+                  <td className="px-4 py-3">{sourceLabel[log.source] ?? "직원"}</td>
                   {canCancel ? (
                     <td className="px-4 py-3">
                       {log.status === "checked_in" ? (

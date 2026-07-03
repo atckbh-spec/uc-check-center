@@ -17,10 +17,10 @@ export default async function CheckInPage({ searchParams }: { searchParams: { q?
 
   return (
     <StaffOnlyLayout>
-      <PageHeader title="Quick check-in" description="회원명 또는 전화번호 마지막 4자리로 검색합니다." />
+      <PageHeader title="빠른 출석" description="회원명 또는 전화번호 마지막 4자리로 검색합니다." />
       <form className="mb-5 flex max-w-xl gap-2">
-        <Input name="q" placeholder="Name or last 4 digits" defaultValue={searchParams.q ?? ""} />
-        <Button type="submit">Search</Button>
+        <Input name="q" placeholder="이름 또는 마지막 4자리" defaultValue={searchParams.q ?? ""} />
+        <Button type="submit">검색</Button>
       </form>
       <div className="grid gap-3">
         {(members as any[]).map((member) => {
@@ -29,7 +29,9 @@ export default async function CheckInPage({ searchParams }: { searchParams: { q?
             <Card key={member.id} className="p-4">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <Link href={`/members/${member.id}`} className="font-semibold">{member.name}</Link>
+                  <Link href={`/members/${member.id}`} className="font-semibold">
+                    {member.name}
+                  </Link>
                   <div className="text-sm text-muted">{maskPhone(member.phone)}</div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -37,7 +39,9 @@ export default async function CheckInPage({ searchParams }: { searchParams: { q?
                     <form key={pass.id} action={checkInMemberAndRedirect}>
                       <input type="hidden" name="member_id" value={member.id} />
                       <input type="hidden" name="member_pass_id" value={pass.id} />
-                      <Button type="submit" variant="secondary">{pass.pass_name} · {pass.remaining_sessions}</Button>
+                      <Button type="submit" variant="secondary">
+                        {pass.pass_name} · 잔여 {pass.remaining_sessions}회
+                      </Button>
                     </form>
                   ))}
                   {activePasses.length === 0 ? <span className="text-sm text-muted">출석 가능한 회원권이 없습니다.</span> : null}

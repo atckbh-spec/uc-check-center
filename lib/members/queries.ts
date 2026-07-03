@@ -109,11 +109,13 @@ export async function searchMembers(query = "", organizationId: string) {
   }
 
   const supabase = await createSupabaseServerClient();
+  const today = todayInKorea();
   let request = supabase
     .from("members")
-    .select("*, member_passes(*)")
+    .select("*, member_passes(*), attendance_logs(id, member_pass_id, attendance_date, status, checkin_at)")
     .eq("organization_id", organizationId)
     .neq("status", "archived")
+    .eq("attendance_logs.attendance_date", today)
     .order("created_at", { ascending: false });
 
   if (query) {

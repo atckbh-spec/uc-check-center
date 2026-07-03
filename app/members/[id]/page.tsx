@@ -31,6 +31,13 @@ const roleLabel: Record<string, string> = {
   front_desk: "프론트"
 };
 
+const memberStatusLabel: Record<string, string> = {
+  active: "활성 회원",
+  inactive: "비활성 회원",
+  paused: "일시정지",
+  archived: "보관"
+};
+
 function estimateRunoutDate(remaining: number, visitsLast30: number) {
   if (!remaining || visitsLast30 <= 0) return "-";
   const daysPerVisit = 30 / visitsLast30;
@@ -58,9 +65,11 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   ]);
   const assignableStaff = getAssignableStaff(staffUsers);
   const assignedStaff = staffUsers.find((item) => item.id === member.assigned_coach_id);
-  const activePasses = member.member_passes.filter((pass) => pass.status === "active");
-  const primaryPass = activePasses[0];
-  const attendanceLogs = member.attendance_logs as any[];
+  const memberPasses = member.member_passes ?? [];
+  const activePasses = memberPasses.filter((pass) => pass.status === "active");
+  const checkablePasses = activePasses.filter((pass) => pass.remaining_sessions > 0);
+  const primaryPass = checkablePasses[0] ?? activePasses[0];
+  const attendanceLogs = (member.attendance_logs ?? []) as any[];
   const visitsLast30 = attendanceLogs.filter((log) => {
     const time = new Date(log.checkin_at).getTime();
     return log.status === "checked_in" && time >= Date.now() - 30 * 86400000;
@@ -76,9 +85,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     <StaffOnlyLayout>
       <PageHeader
         title={member.name}
-        description={`${maskPhone(member.phone)} · ${member.status === "active" ? "활성 회원" : member.status}`}
+        description={`${maskPhone(member.phone)} · ${memberStatusLabel[member.status] ?? member.status}`}
         actions={
-          primaryPass ? (
+          primaryPass && primaryPass.remaining_sessions > 0 ? (
             <form action={checkInMemberAndRedirect}>
               <input type="hidden" name="member_id" value={member.id} />
               <input type="hidden" name="member_pass_id" value={primaryPass.id} />
@@ -133,7 +142,15 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {riskReasons.length > 0 ? riskReasons.map((reason) => <Badge key={reason} className="bg-gray-100 text-gray-700">{reason}</Badge>) : <Badge className="bg-brand-soft text-brand-dark">특이사항 없음</Badge>}
+          {riskReasons.length > 0 ? (
+            riskReasons.map((reason) => (
+              <Badge key={reason} className="bg-gray-100 text-gray-700">
+                {reason}
+              </Badge>
+            ))
+          ) : (
+            <Badge className="bg-brand-soft text-brand-dark">특이사항 없음</Badge>
+          )}
         </div>
       </Card>
 
@@ -154,11 +171,17 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                           사용 {pass.used_sessions}회 · 잔여 {pass.remaining_sessions}회 · 전체 {pass.total_sessions}회
                         </div>
                       </div>
-                      <form action={checkInMemberAndRedirect}>
-                        <input type="hidden" name="member_id" value={member.id} />
-                        <input type="hidden" name="member_pass_id" value={pass.id} />
-                        <Button type="submit" className="h-12 min-w-32 text-base font-bold">출석 체크</Button>
-                      </form>
+                      {pass.remaining_sessions > 0 ? (
+                        <form action={checkInMemberAndRedirect}>
+                          <input type="hidden" name="member_id" value={member.id} />
+                          <input type="hidden" name="member_pass_id" value={pass.id} />
+                          <Button type="submit" className="h-12 min-w-36 text-base font-bold">
+                            수기 출석 처리
+                          </Button>
+                        </form>
+                      ) : (
+                        <Badge className="bg-gray-100 text-gray-700">잔여 없음</Badge>
+                      )}
                     </div>
                     <div className="mt-5">
                       <div className="flex justify-between text-sm text-muted">
@@ -199,12 +222,16 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               <select name="assigned_coach_id" defaultValue={member.assigned_coach_id ?? ""} className="focus-ring h-11 w-full rounded-md border border-line bg-white px-3">
                 <option value="">담당 미지정</option>
                 {assignableStaff.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} · {roleLabel[item.role]}</option>
+                  <option key={item.id} value={item.id}>
+                    {item.name} · {roleLabel[item.role]}
+                  </option>
                 ))}
               </select>
-              <Button type="submit" className="w-full">담당 저장</Button>
+              <Button type="submit" className="w-full">
+                담당 저장
+              </Button>
             </form>
-            <p className="mt-3 text-xs text-muted">활성 상태의 운영자, 관리자, 코치만 담당자로 지정할 수 있습니다.</p>
+            <p className="mt-3 text-xs text-muted">운영자, 관리자, 코치만 회원 담당자로 지정할 수 있습니다.</p>
           </Card>
 
           <Card className="p-5">
@@ -220,7 +247,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 <option value="other">기타</option>
               </select>
               <Input name="start_date" type="date" defaultValue={todayInKorea()} />
-              <Button type="submit" className="w-full">회원권 추가</Button>
+              <Button type="submit" className="w-full">
+                회원권 추가
+              </Button>
             </form>
           </Card>
         </div>

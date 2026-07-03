@@ -34,11 +34,11 @@ export default function StaffCheckInSuccessPage({ searchParams }: Props) {
           <h1 className="mt-6 text-3xl font-bold text-ink">
             {ok ? `${name}님 ${date} ${count}회 출석입니다.` : "출석 처리에 실패했습니다."}
           </h1>
-          <p className="mt-3 text-base text-muted">{searchParams.message}</p>
+          <p className="mt-3 text-base text-muted">{searchParams.message || (ok ? "출석이 정상 처리되었습니다." : "회원권 상태나 중복 출석 여부를 확인해 주세요.")}</p>
           {ok ? (
             <div className="mt-6 rounded-md bg-surface p-4 text-sm text-muted">
-              <div>{searchParams.pass}</div>
-              <div>잔여 횟수 {searchParams.remaining}회</div>
+              <div className="font-semibold text-ink">{searchParams.pass || "회원권"}</div>
+              <div className="mt-1">차감 후 잔여 횟수 {searchParams.remaining || "-"}회</div>
             </div>
           ) : null}
           <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">

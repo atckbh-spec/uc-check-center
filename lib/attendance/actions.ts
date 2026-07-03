@@ -25,6 +25,7 @@ export async function checkInMember(formData: FormData): Promise<CheckInResult> 
 
   revalidatePath("/dashboard");
   revalidatePath("/attendance/today");
+  revalidatePath("/members");
   revalidatePath(`/members/${memberId}`);
   return data as CheckInResult;
 }
@@ -73,6 +74,7 @@ export async function cancelAttendance(attendanceId: string, reason: string) {
 
   revalidatePath("/attendance/today");
   revalidatePath("/dashboard");
+  revalidatePath("/members");
 }
 
 export async function cancelAttendanceFromForm(formData: FormData) {
@@ -136,5 +138,7 @@ export async function markNoShow(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/attendance/today");
+  revalidatePath("/dashboard");
+  revalidatePath("/members");
   revalidatePath(`/members/${memberId}`);
 }

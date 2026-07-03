@@ -19,7 +19,7 @@ export default async function MembersPage({ searchParams }: { searchParams: { q?
     <StaffOnlyLayout>
       <PageHeader
         title="회원 관리"
-        description="회원 정보, 회원권 잔여 횟수, 재등록 상태를 관리합니다."
+        description="회원 정보, 활성 회원권, 잔여 횟수, 오늘 출석 상태를 한 화면에서 확인합니다."
         actions={
           <Link className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white" href="/members/new">
             <Plus className="size-4" />
@@ -28,8 +28,10 @@ export default async function MembersPage({ searchParams }: { searchParams: { q?
         }
       />
       <form className="mb-4 flex max-w-xl gap-2">
-        <Input name="q" placeholder="이름 또는 전화번호 끝 4자리" defaultValue={query} />
-        <Button type="submit" variant="secondary">검색</Button>
+        <Input name="q" placeholder="이름 또는 전화번호 마지막 4자리" defaultValue={query} />
+        <Button type="submit" variant="secondary">
+          검색
+        </Button>
       </form>
       <MemberTable members={members as any[]} />
     </StaffOnlyLayout>
